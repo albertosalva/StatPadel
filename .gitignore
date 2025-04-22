@@ -1,1 +1,10 @@
-"backend-python/external/models/yolo11x.pt" 
+# Ignorar el peso del modelo YOLO
+backend-python/external/models/yolo11x.pt
+
+# Ignorar todos los archivos de entorno .env
+*.env
+
+# Ignorar caches y bytecode de Python
+__pycache__/
+*.pyc
+
