@@ -5,7 +5,130 @@ import cv2
 import numpy as np
 import json
 import matplotlib.pyplot as plt
+import os
+import time
+from datetime import datetime, timedelta
+from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client.client.write_api import SYNCHRONOUS
+from dotenv import load_dotenv
 
+
+def transform_json_homography_to_influx(input_data, bucket, court_width=10, court_length=20):
+    """
+    Lee un JSON con 'court_corners' y 'frames', calcula la homografía para transformar
+    las coordenadas de píxeles al sistema real (en metros) y guarda los datos transformados
+    en InfluxDB.
+    
+    Parámetros:
+      - input_data: ruta al archivo JSON o diccionario con los datos.
+      - bucket: Bucket de InfluxDB donde se almacenarán los datos.
+      - court_width: Ancho de la pista (en metros).
+      - court_length: Largo de la pista (en metros).
+    """
+    # 1. Leer datos de entrada (archivo o diccionario)
+    if isinstance(input_data, str):
+        with open(input_data, "r") as f:
+            data = json.load(f)
+    else:
+        data = input_data
+
+    if "court_corners" not in data:
+        print("Error: no se encontró 'court_corners' en el JSON.")
+        return
+
+    court_corners = np.array(data["court_corners"], dtype="float32")
+
+    # 2. Función auxiliar para reordenar esquinas
+    def order_points(pts):
+        pts = np.array(pts, dtype="float32")
+        s = pts.sum(axis=1)
+        top_left = pts[np.argmin(s)]
+        bottom_right = pts[np.argmax(s)]
+        diff = np.diff(pts, axis=1)
+        top_right = pts[np.argmin(diff)]
+        bottom_left = pts[np.argmax(diff)]
+        return np.array([top_left, top_right, bottom_right, bottom_left], dtype="float32")
+
+    # 3. Definir puntos origen (imagen) y destino (sistema real)
+    src_points = order_points(court_corners)
+    dst_points = np.array([
+        [0, 0],
+        [court_width, 0],
+        [court_width, court_length],
+        [0, court_length]
+    ], dtype="float32")
+
+    # 4. Calcular la homografía
+    H, status = cv2.findHomography(src_points, dst_points)
+    print("Matriz de homografía:", H)
+
+    # 5. Función para transformar un punto usando la homografía
+    def transform_point(pt, H):
+        p = np.array([pt[0], pt[1], 1.0], dtype="float32").reshape(3, 1)
+        p_trans = H.dot(p)
+        p_trans /= p_trans[2]
+        return (p_trans[0, 0], p_trans[1, 0])
+
+    # 6. Conectar a InfluxDB usando las variables de entorno y parámetros recomendados
+    load_dotenv()
+    token = os.environ.get("INFLUXDB_TOKEN")
+    if token is None:
+        print("Error: La variable INFLUXDB_TOKEN no está definida.")
+        return
+    else:
+        print("Token obtenido correctamente.")
+        print(token)
+    org = "StatPadel"
+    url = "http://localhost:8086"
+    client = InfluxDBClient(url=url, token=token, org=org)
+    write_api = client.write_api(write_options=SYNCHRONOUS)
+
+    # Establecer una marca de tiempo base (UTC) para los frames
+    base_time = datetime.utcnow()
+
+    # 7. Iterar sobre cada frame y escribir los datos transformados en InfluxDB
+    for i, frame in enumerate(data["frames"]):
+        frame_time = base_time + timedelta(seconds=i)
+        # Insertar datos para cada jugador
+        for pid, pos in frame["players"].items():
+            x, y = pos["x"], pos["y"]
+            if x == -1 or y == -1:
+                # Convertir explícitamente a float
+                x_t, y_t = -1.0, -1.0
+            else:
+                x_t, y_t = transform_point((x, y), H)
+                x_t, y_t = float(x_t), float(y_t)
+            point = (
+                Point("homography")
+                .tag("entity", "player")
+                .tag("player_id", pid)
+                .field("x", x_t)
+                .field("y", y_t)
+                .time(frame_time, WritePrecision.NS)
+            )
+            write_api.write(bucket=bucket, org=org, record=point)
+
+        # Insertar datos para la bola
+        ball_x, ball_y = frame["ball"]["x"], frame["ball"]["y"]
+        if ball_x == -1 or ball_y == -1:
+            bx_t, by_t = -1.0, -1.0
+        else:
+            bx_t, by_t = transform_point((ball_x, ball_y), H)
+            bx_t, by_t = float(bx_t), float(by_t)
+        point = (
+            Point("homography")
+            .tag("entity", "ball")
+            .field("x", bx_t)
+            .field("y", by_t)
+            .time(frame_time, WritePrecision.NS)
+        )
+        write_api.write(bucket=bucket, org=org, record=point)
+
+        # Opcional: separar puntos por un breve lapso si se requiere
+        # time.sleep(1)
+
+    print("Datos transformados guardados en InfluxDB.")
+    client.close()
 
 def transform_json_homography(input_data, output_json_filename, court_width=10, court_length=20):
     """

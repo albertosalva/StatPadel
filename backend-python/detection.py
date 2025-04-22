@@ -8,6 +8,11 @@ import sys
 import os
 from math import sqrt
 from ultralytics import YOLO
+import time
+import requests
+import time
+
+#from server import wait_for_corners
 
 # Agregar la carpeta de TrackNet al path para poder importar los modulos
 tracnet_dir = os.path.join("external", "TrackNet")
@@ -60,6 +65,37 @@ def select_corners(frame):
     return roi
 
 
+
+def select_corners_remote(timeout=60):
+    """
+    Espera (por polling) hasta que el usuario haya seleccionado las esquinas a través de la UI web.
+    Llama al endpoint /get_corners del servicio Flask para comprobar si ya se han enviado.
+    """
+    flask_url = "http://localhost:5000"  # Asegúrate de que la URL y puerto sean correctos.
+    print("Esperando que el usuario seleccione las esquinas desde la UI web...")
+
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        try:
+            resp = requests.get(f"{flask_url}/get_corners")
+            # Si el código de estado es 204, significa que aún no hay esquinas.
+            if resp.status_code == 200:
+                data = resp.json()
+                corners = data.get("corners")
+                if corners and len(corners) == 4:
+                    print("Esquinas recibidas:", corners)
+                    return np.array(corners, dtype=np.float32)
+            else:
+                print("Esquinas pendientes, esperando...")
+        except Exception as e:
+            print("Error al contactar el endpoint /get_corners:", e)
+        time.sleep(1)
+
+    raise TimeoutError("No se seleccionaron las esquinas a tiempo.")
+
+    
+
+
 def video_analyzer(video_path, output_path):
     """
     Analiza un video en la ruta especificada y guarda un video
@@ -86,7 +122,9 @@ def video_analyzer(video_path, output_path):
 
     # Seleccionar las esquinas de la pista en el primer frame
     first_frame = frames[0]
-    court_polygon = select_corners(first_frame)
+    #court_polygon = select_corners(first_frame)
+    court_polygon = select_corners_remote()
+    print("Esquinas seleccionadas:", court_polygon)
     court_corners = court_polygon.tolist()
 
     # Obtener dimensiones del video
@@ -122,7 +160,7 @@ def video_analyzer(video_path, output_path):
 
     # Procesar cada frame: detección de jugadores (YOLO) y superponer la posición de la bola (obtenida de inferencia)
     for i, frame in enumerate(frames):
-        annotated_frame = frame.copy()
+        # annotated_frame = frame.copy()
 
         # --- Detección de jugadores con YOLO ---
         results = yolo_model(frame)
@@ -142,11 +180,10 @@ def video_analyzer(video_path, output_path):
                     detections.append(foot_point)
                 else:
                     continue
-                cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, 2)
-                label = f"{class_name} {confidence:.2f}"
-                cv2.putText(annotated_frame, label, (x1, y1 - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-                cv2.circle(annotated_frame, foot_point, 3, (0, 255, 0), -1)
+                # cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, 2)
+                # label = f"{class_name} {confidence:.2f}"
+                # cv2.putText(annotated_frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+                # cv2.circle(annotated_frame, foot_point, 3, (0, 255, 0), -1)
 
         # --- Tracking de jugadores ---
         new_tracked = {}
@@ -183,7 +220,7 @@ def video_analyzer(video_path, output_path):
         ball_pos = ball_track[i] if i < len(ball_track) else (None, None)
         if ball_pos[0] is not None:
             scaled_ball = (int(ball_pos[0] * scale_x), int(ball_pos[1] * scale_y))
-            cv2.circle(annotated_frame, scaled_ball, 5, (0, 0, 255), -1)
+            # cv2.circle(annotated_frame, scaled_ball, 5, (0, 0, 255), -1)
         else:
             scaled_ball = None
 
@@ -201,11 +238,11 @@ def video_analyzer(video_path, output_path):
             frame_data["ball"] = {"x": scaled_ball[0], "y": scaled_ball[1]}
         results_json["frames"].append(frame_data)
 
-        out.write(annotated_frame)
-        cv2.imshow("Detección de jugadores y bola", annotated_frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        # out.write(annotated_frame)
+        # cv2.imshow("Detección de jugadores y bola", annotated_frame)
+        # if cv2.waitKey(1) & 0xFF == ord('q'):
+            # break
 
-    out.release()
-    cv2.destroyAllWindows()
+    # out.release()
+    # cv2.destroyAllWindows()
     return results_json

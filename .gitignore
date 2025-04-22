@@ -8,3 +8,7 @@ backend-python/external/models/yolo11x.pt
 __pycache__/
 *.pyc
 
+# Ignorar dependencias de Node
+backend-node/node_modules/
+frontend/statpadel/node_modules/
+
