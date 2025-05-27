@@ -4,6 +4,7 @@ import videoService from '../services/videoService';
 
 export const useVideoStore = defineStore('video', {
   state: () => ({
+    matchId: null,
     file: null,
     frameImage: "data:image/jpeg;base64,...",  // Imagen de placeholder inicial
     corners: [],
@@ -14,7 +15,7 @@ export const useVideoStore = defineStore('video', {
   actions: {
     // Agrega mensajes de depuración y los muestra por consola.
     agregarDebug(msg) {
-      console.log(msg);
+      //console.log(msg);
       this.debugMessages.push(msg);
     },
 
@@ -116,11 +117,18 @@ export const useVideoStore = defineStore('video', {
       }
       try {
         this.agregarDebug("Iniciando análisis de video con upload_video");
-        const response = await videoService.uploadVideo(this.file);
-        this.agregarDebug(`Respuesta de upload_video: ${JSON.stringify(response.data)}`);
-        this.analisisResultado = response.data;
+        const { matchId, analysis } = await videoService.uploadVideo(this.file);
+        this.matchId           = matchId
+        this.analisisResultado = analysis
+        this.agregarDebug(`Respuesta de upload_video: ${JSON.stringify({matchId, analysis})}`);
+        //this.analisisResultado = response.data;
       } catch (error) {
-        this.agregarDebug(`Error en analizarVideo: ${error.message}`);
+        console.error('Error en analizarVideo:', {
+          status: error.response?.status,
+          body:   error.response?.data,
+          message:error.message
+        })
+        this.agregarDebug(`Error en analizarVideo: ${error.response?.data || error.message}`)
       }
     }
   }

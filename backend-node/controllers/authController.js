@@ -2,6 +2,7 @@
 
 // Importación de módulos
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt')
 const Usuario = require('../models/Users'); // Importamos el modelo de Usuario
 require('dotenv').config();
 
@@ -18,18 +19,25 @@ exports.login = async (req, res) => {
     }
 
     // Compara la contraseña (en producción, usar bcrypt.compare)
-    if (password !== user.password) {
-      return res.status(401).json({ message: 'Credenciales inválidas' });
+    //if (password !== user.password) {
+    //  return res.status(401).json({ message: 'Credenciales inválidas' });
+    //}
+
+    const isMatch = await bcrypt.compare(password, user.password)
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Credenciales inválidas' })
     }
 
     // Si las credenciales son correctas, genera un token JWT
     const token = jwt.sign(
-      { id: user._id, username: user.username },
+      { sub: user._id.toString(), username: user.username },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
-    );
+    )
+
+    const userId = user._id.toString(); // Convertir a string si es necesario
     
-    return res.json({ token: token, username: user.username });
+    return res.json({ token: token, username: user.username , userId: userId});
     
   } catch (err) {
     console.error('Error en el login:', err);
@@ -40,19 +48,23 @@ exports.login = async (req, res) => {
 // Controlador para registrar nuevos usuarios
 exports.register = async (req, res) => {
   const { nombre, email, password } = req.body;
+
   try {
     const existingUser = await Usuario.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: 'El correo ya está registrado' });
     }
+
+
     const newUser = new Usuario({
       username: nombre,
       email: email,
-      password: password
+      password: password //Se hashea en el modelo de Users.js
     });
     await newUser.save();
     res.json({ message: 'Usuario registrado exitosamente', user: newUser });
   } catch (err) {
+    console.error('Error en el login:', err);
     res.status(500).json({ message: 'Error en el servidor' });
   }
 };
@@ -72,7 +84,8 @@ exports.verifyToken = (req, res, next) => {
       }
       return res.status(403).json({ message: 'Token inválido' });
     }
-    req.user = decoded;
+    //req.user = decoded;
+    req.user = { id: decoded.sub, username: decoded.username }
     next();
   });
 };

@@ -1,8 +1,19 @@
 // src/services/videoService.js
 import axios from 'axios';
+import { useAuthStore } from '@/stores/authStore';
 
 // Configuración global de Axios: todas las peticiones se dirigirán a http://localhost:3000
 axios.defaults.baseURL = 'http://localhost:3000';
+
+function getApi() {
+  const auth = useAuthStore()
+  return axios.create({
+    baseURL: 'http://localhost:3000/api/video',
+    headers: {
+      Authorization: `Bearer ${auth.token}`
+    }
+  })
+}
 
 export default {
   // Sube el archivo de video a una carpeta temporal.
@@ -37,9 +48,11 @@ export default {
   async uploadVideo(file) {
     const formData = new FormData();
     formData.append('file', file, file.name);
-    const response = await axios.post('/api/video/upload_video', formData, {
+
+    const api = getApi();
+    const response = await api.post('/upload_video', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
-    return response;
+    return response.data;
   }
 };

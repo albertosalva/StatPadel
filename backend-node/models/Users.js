@@ -1,6 +1,7 @@
 // models/Usuario.js
 
 const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
 
 const usuarioSchema = new mongoose.Schema({
     username: { 
@@ -16,6 +17,20 @@ const usuarioSchema = new mongoose.Schema({
     password: { type: String,
         required: true 
     }
-}, { collection: 'users', timestamps: true });
+}, { 
+    collection: 'users', 
+    timestamps: true
+});
+
+usuarioSchema.pre('save', async function(next) {
+    if (!this.isModified('password')) return next();
+    try {
+      const saltRounds     = 10;
+      this.password = await bcrypt.hash(this.password, saltRounds);
+      next()
+    } catch (err) {
+      next(err);
+    }
+});
 
 module.exports = mongoose.model('Usuario', usuarioSchema);

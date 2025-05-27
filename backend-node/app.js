@@ -9,7 +9,8 @@ require('dotenv').config();
 const app = express();
 
 // Conexión a MongoDB
-mongoose.connect('mongodb://127.0.0.1:27017/statpadel')
+const mongoURI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/statpadel';
+mongoose.connect(mongoURI)
   .then(() => console.log('Conectado a MongoDB'))
   .catch(err => console.error('Error al conectar a MongoDB:', err));
 
@@ -39,6 +40,10 @@ app.use('/api/corners', cornersRoutes);
 
 const videoRoutes = require('./routes/videoRoutes');
 app.use('/api/video', videoRoutes);
+
+const matchRoutes = require('./routes/matchRoutes');
+app.use('/api/matches', matchRoutes);
+
 
 // Arranque del servidor
 const PORT = process.env.PORT || 3000;

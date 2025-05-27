@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { jwtDecode } from 'jwt-decode';
 
 // Configuración global de Axios: todas las peticiones se dirigirán a http://localhost:3000
 axios.defaults.baseURL = 'http://localhost:3000';
@@ -7,11 +8,22 @@ axios.defaults.baseURL = 'http://localhost:3000';
 export const loginService = async (username, password) => {
   // Llamar al endpoint de login
   try {
-    const response = await axios.post('/api/auth/login', {
+    const {data} = await axios.post('/api/auth/login', {
       username,
       password,
     });
-    return response.data;
+    const { 
+      token, 
+      userId: apiUserId, 
+      username: userName } = data
+
+      let userId = apiUserId
+      if (!userId) {
+        // Decodifica el JWT para sacar el sub
+        const payload = jwtDecode(token)
+        userId = payload.sub
+      }
+      return { token, userId, username: userName }
   }
   catch (error) {
     console.error('Error en el servicio de login:', error);

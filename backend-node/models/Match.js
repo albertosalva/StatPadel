@@ -1,10 +1,11 @@
 // models/Match.js
 const mongoose = require('mongoose');
+const { Schema } = mongoose
 
 const MatchSchema = new mongoose.Schema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+  owner: {
+    type: Schema.Types.ObjectId,
+    ref: 'Users',
     required: true,
   },
   videoName: {
@@ -15,6 +16,14 @@ const MatchSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  filePath: {
+    type: String,
+    required: true,
+  },
+  analysis: {
+    type: Object,
+    default: null
+  }
 });
 
 module.exports = mongoose.model('Match', MatchSchema);

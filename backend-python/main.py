@@ -5,15 +5,24 @@ import os
 import uvicorn
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
+from dotenv import load_dotenv
 
 from detection import video_analyzer
 from homography import transform_json_homography
-from homography import transform_json_homography_to_influx
 from homography import plot_transformed_trajectories
 from exporter import export_to_json
+from match_statistics import compute_match_statistics
 
 # Creacion de la aplicacion
 app = FastAPI()
+
+# Cargar variables de entorno
+load_dotenv()
+
+influx_url = os.getenv("INFLUX_URL")
+influx_token = os.getenv("INFLUXDB_TOKEN")
+influx_org = os.getenv("INFLUX_ORG")
+influx_bucket = os.getenv("INFLUX_BUCKET")
 
 @app.post("/upload_video_temp")
 async def upload_video_temp(file: UploadFile = File(...)):
@@ -54,7 +63,7 @@ async def upload_video(file: UploadFile = File(...)):
 
     #transform_json_homography_to_influx(results, bucket)
 
-    transform_json_homography(results, json_filename)
+    result_homography = transform_json_homography(results, json_filename)
 
     #plot_transformed_trajectories(json_filename)
 
@@ -62,8 +71,23 @@ async def upload_video(file: UploadFile = File(...)):
     # Eliminar el archivo temporal
     os.remove(temp_file_path)
 
+    print("Resultados exportados a", result_homography)
+
     # Retornar los resultados en formato JSON
-    return results
+    return result_homography
+
+
+@app.get("/match_stats/{match_id}")
+def get_match_stats(match_id: str):
+    stats = compute_match_statistics(
+        match_id=match_id,
+        influx_url=influx_url,
+        influx_token=influx_token,
+        influx_org=influx_org,
+        influx_bucket=influx_bucket
+    )
+    print("Estadísticas del partido:", stats)
+    return stats
 
 
 if __name__ == '__main__':

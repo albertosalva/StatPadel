@@ -5,20 +5,24 @@ import { loginService, registerService } from '@/services/userService';
 export const useAuthStore = defineStore('auth', {
     state: () => ({
         token: null,
-        username: ''
+        username: '',
+        userId:  null
     }),
     getters: {
         isAuthenticated: (state) => !!state.token,
-        getUsername: (state) => state.username || "Usuario"
+        getUsername: (state) => state.username || "Usuario",
+        getUserId:       state => state.userId
     },
     actions: {
         async login(username, password) {
             // Llamar a la función de login del servicio de usuarios
-            const { token, username: userName } = await loginService(username, password);
+            const { token, userId,  username: userName } = await loginService(username, password);
             
             // Guardar el token y el nombre de usuario en el store
             this.token = token;
             this.username = userName;
+            this.userId   = userId
+
         },
         async register(nombre, email, password, confirmPassword) {
             // Llama al servicio de registro y retorna la respuesta.
@@ -30,6 +34,7 @@ export const useAuthStore = defineStore('auth', {
         logout() {
             this.token = null
             this.username = ''
+            this.userId   = null
         }
     }, 
     persist: {

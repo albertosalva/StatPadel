@@ -3,7 +3,10 @@
 const axios = require('axios');
 
 // URL base del servicio Flask 
-const FLASK_URL = "http://127.0.0.1:5000";
+//const FLASK_URL = "http://127.0.0.1:5000";
+const host = process.env.API_HOST;
+const port = process.env.API_PORT_CORNERS;
+const FLASK_URL = `http://${host}:${port}`;
 
 exports.loadVideo = async (req, res) => {
     try {

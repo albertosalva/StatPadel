@@ -50,6 +50,13 @@
       <h3>Resultado del análisis:</h3>
       <pre>{{ analisisResultado }}</pre>
     </div>
+
+    <!-- Mostrar ID de la coincidencia si está disponible -->
+    <div v-if="matchId">
+      <h4>ID en Mongo:</h4>
+      <p>{{ matchId }}</p>
+    </div>
+
     
     <!-- Área de depuración -->
     <div class="debug-messages">
@@ -69,7 +76,7 @@ import { storeToRefs } from 'pinia';
 // Se crea la instancia de la tienda.
 const videoStore = useVideoStore();
 // Se extraen las propiedades reactivas de la tienda.
-const { file, frameImage, corners, esquinasEnviadas, analisisResultado, debugMessages } = storeToRefs(videoStore);
+const { file, frameImage, corners, esquinasEnviadas, analisisResultado, debugMessages , matchId} = storeToRefs(videoStore);
 
 const frameImg = ref(null);
 

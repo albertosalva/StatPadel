@@ -7,6 +7,11 @@ import router from './router';
 // Importamos axios
 import axios from 'axios';
 
+// Importamos element-plus
+import 'element-plus/dist/index.css'
+import ElementPlus from 'element-plus'
+import esLocale from 'element-plus/es/locale/lang/es'
+
 // Importamos Pinia
 import { createPinia } from 'pinia'
 import piniaPersist from 'pinia-plugin-persistedstate';
@@ -40,4 +45,4 @@ axios.interceptors.response.use(
 );
 
 
-createApp(App).use(pinia).use(router).mount('#app')
+createApp(App).use(pinia).use(router).use(ElementPlus, { esLocale }).mount('#app')
