@@ -25,7 +25,7 @@ exports.login = async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.password)
     if (!isMatch) {
-      return res.status(401).json({ message: 'Credenciales inválidas' })
+      return res.status(401).json({ message: 'Contraseña incorrecta' })
     }
 
     // Si las credenciales son correctas, genera un token JWT
@@ -50,8 +50,13 @@ exports.register = async (req, res) => {
   const { nombre, email, password } = req.body;
 
   try {
-    const existingUser = await Usuario.findOne({ email });
-    if (existingUser) {
+    const existingByUsername = await Usuario.findOne({ username: nombre });
+    if (existingByUsername) {
+      return res.status(400).json({ message: 'El nombre de usuario ya está en uso' });
+    }
+
+    const existingByEmail = await Usuario.findOne({ email });
+    if (existingByEmail) {
       return res.status(400).json({ message: 'El correo ya está registrado' });
     }
 
@@ -61,7 +66,9 @@ exports.register = async (req, res) => {
       email: email,
       password: password //Se hashea en el modelo de Users.js
     });
+
     await newUser.save();
+    
     res.json({ message: 'Usuario registrado exitosamente', user: newUser });
   } catch (err) {
     console.error('Error en el login:', err);

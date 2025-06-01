@@ -59,6 +59,9 @@ export const useVideoStore = defineStore('video', {
         this.agregarDebug("Solicitando primer frame con get_frame");
         const frameResponse = await videoService.getFrame();
         if (frameResponse && frameResponse.frame) {
+          console.log("RAW FRAME:", frameResponse.frame.slice(0,20))
+          console.log("FINAL URI:", `data:image/jpeg;base64,${frameResponse.frame}`.slice(0,25))
+          
           this.frameImage = `data:image/jpeg;base64,${frameResponse.frame}`;
           this.agregarDebug("Primer frame obtenido correctamente");
         } else {

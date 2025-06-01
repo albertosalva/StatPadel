@@ -10,10 +10,10 @@ import { jwtDecode } from "jwt-decode";
 import { useAuthStore } from '@/stores/authStore';
 
 const routes = [
-  { path: '/', name: 'Inicio', component: () => import('../views/Inicio.vue'), meta: { requiresAuth: false } },
-  { path: '/registro', name: 'Registro', component: () => import('../views/Registro.vue'), meta: { requiresAuth: false } },
-  { path: '/login', name: 'Login', component: () => import('../views/Login.vue'), meta: { requiresAuth: false } },
-  { path: '/principal', name: 'Principal', component: () => import('../views/Principal.vue'), meta: { requiresAuth: true } },
+  { path: '/', name: 'Inicio', component: () => import('../views/InicioView.vue'), meta: { requiresAuth: false } },
+  { path: '/registro', name: 'Registro', component: () => import('../views/RegistroView.vue'), meta: { requiresAuth: false } },
+  { path: '/login', name: 'Login', component: () => import('../views/LoginView.vue'), meta: { requiresAuth: false } },
+  { path: '/principal', name: 'Principal', component: () => import('../views/PrincipalView.vue'), meta: { requiresAuth: true } },
   { path: '/subida-video', name: 'SubidaVideo', component: () => import('../views/SubidaVideo.vue'), meta: { requiresAuth: true } },
   { path: '/procesamiento-video', name: 'ProcesamientoVideo', component: () => import('../views/ProcesamientoVideo.vue'), meta: { requiresAuth: true } },
   { path: '/resultados-estadisticas/:id', name: 'ResultadosEstadisticas', component: () => import('../views/ResultadosEstadisticas.vue'), meta: { requiresAuth: true }, props: true },

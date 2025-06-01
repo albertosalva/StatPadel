@@ -5,8 +5,9 @@ import { useAuthStore } from '@/stores/authStore'
 // Crea una instancia de Axios con el token ya incluido
 function getApi() {
   const auth = useAuthStore()
+  const base = axios.defaults.baseURL
   return axios.create({
-    baseURL: 'http://localhost:3000/api/matches',
+    baseURL: `${base}/api/matches`,
     headers: { Authorization: `Bearer ${auth.token}` }
   })
 }
@@ -38,5 +39,4 @@ export default {
     const { data } = await api.get(`/${matchId}`)
     return data
   }
-}
-
+};

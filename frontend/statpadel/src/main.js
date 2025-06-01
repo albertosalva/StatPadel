@@ -6,11 +6,21 @@ import router from './router';
 
 // Importamos axios
 import axios from 'axios';
+const host = process.env.VUE_APP_API_HOST;
+const port = process.env.VUE_APP_API_PORT;
+
+console.log('[ENV] API Host:', host);
+console.log('[ENV] API Port:', port);
+console.log('[ENV] axios.baseURL:', `http://${host}:${port}`);
+
+axios.defaults.baseURL = `http://${host}:${port}`;
 
 // Importamos element-plus
 import 'element-plus/dist/index.css'
+import 'element-plus/theme-chalk/dark/css-vars.css'
 import ElementPlus from 'element-plus'
 import esLocale from 'element-plus/es/locale/lang/es'
+import 'dayjs/locale/es'
 
 // Importamos Pinia
 import { createPinia } from 'pinia'
@@ -45,4 +55,6 @@ axios.interceptors.response.use(
 );
 
 
-createApp(App).use(pinia).use(router).use(ElementPlus, { esLocale }).mount('#app')
+createApp(App).use(pinia).use(router).use(ElementPlus, { locale: esLocale }).mount('#app')
+
+document.documentElement.classList.add('dark')

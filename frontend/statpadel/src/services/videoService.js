@@ -2,13 +2,11 @@
 import axios from 'axios';
 import { useAuthStore } from '@/stores/authStore';
 
-// Configuración global de Axios: todas las peticiones se dirigirán a http://localhost:3000
-axios.defaults.baseURL = 'http://localhost:3000';
-
 function getApi() {
   const auth = useAuthStore()
+  const base = axios.defaults.baseURL
   return axios.create({
-    baseURL: 'http://localhost:3000/api/video',
+    baseURL: `${base}/api/video`,
     headers: {
       Authorization: `Bearer ${auth.token}`
     }
