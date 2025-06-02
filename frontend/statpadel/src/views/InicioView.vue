@@ -121,9 +121,7 @@
     </el-main>
 
     <!-- Pie de página -->
-    <el-footer class="footer">
-      <p>© StatPadel {{ currentYear }}</p> <!-- Muestra el año dinámico -->
-    </el-footer>
+    <AppFooter/>
 
   </el-container>
 
@@ -132,6 +130,7 @@
 
 
 <script setup>
+import AppFooter from '@/components/AppFooter.vue'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Sunny, Moon, VideoCamera, PieChart, Expand, Files } from '@element-plus/icons-vue'
 import miImagen from '@/assets/man-playing-padel.jpg'
@@ -162,9 +161,6 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
 })
-
-// Año actual para el footer
-const currentYear = new Date().getFullYear()
 
 const themeStore = useThemeStore()
 
@@ -351,29 +347,6 @@ const onToggleTheme = () => {
   .feature-card {
     margin-bottom: 24px;
   }
-}
-
-
-/* ========================================= */
-/* ================= FOOTER ================ */
-/* ========================================= */
-.footer {
-  text-align: center;
-  padding: 20px;
-  position: relative;
-  background-color: var(--el-bg-color);
-  font-size: 0.9rem;
-}
-
-.footer::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background-color: var(--el-border-color);
-  opacity: 0.4;
 }
 
 </style>

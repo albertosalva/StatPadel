@@ -1,6 +1,6 @@
 <!-- src/components/AppHeader.vue -->
 <template>
-	
+
   <el-header class="header">
     <!-- Logo -->
     <div class="header-logo">
@@ -11,8 +11,25 @@
     <div class="header-buttons" v-show="!isMobile">
       <el-switch v-model="isDark" size="large" :active-action-icon="Moon" 
         :inactive-action-icon="Sunny" @change="onToggleTheme" style="--el-switch-off-color: #909399"/>
-			<el-avatar shape="square"> user </el-avatar>
+
+			<el-dropdown @command="handleCommand">
+				<span class="el-dropdown-link">
+					<el-avatar shape="square" class="user-avatar">{{ userInitial }}</el-avatar>
+				</span>
+				<template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="config">
+                Gestionar perfil
+              </el-dropdown-item>
+              <el-dropdown-item divided command="logout">
+                Cerrar sesión
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+			</el-dropdown>
 		</div>
+
+
   </el-header>
 
 </template>
@@ -21,8 +38,13 @@
 import { computed, onMounted } from 'vue'
 import { useThemeStore } from '@/stores/themeStore'
 import { Sunny, Moon } from '@element-plus/icons-vue'
+import { useAuthStore } from '@/stores/authStore'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 
 const themeStore = useThemeStore()
+const authStore = useAuthStore()
+const router = useRouter()
 
 onMounted(() => {
   themeStore.initTheme()
@@ -33,7 +55,12 @@ const onToggleTheme = () => {
   themeStore.toggleTheme()
 }
 
-
+// Sacamos el username del store y calculamos su inicial
+const username = computed(() => authStore.getUsername)
+const userInitial = computed(() => {
+  const name = username.value || ''
+  return name.charAt(0).toUpperCase()
+})
 
 // Cambiar logo según el modo oscuro
 const logoSrc = computed(() =>
@@ -42,7 +69,19 @@ const logoSrc = computed(() =>
     : require('@/assets/logoSP-dark.png')  // Logo claro
 )
 
-
+// Manejar la selección del dropdown
+const handleCommand = (command) => {
+  if (command === 'config') {
+    router.push('/configuracion-perfil')
+  } else if (command === 'logout') {
+		ElMessage({
+      message: 'Sesion cerrada con exito',
+      type: 'success',
+    })
+    authStore.logout()
+    router.push('/')
+  }
+}
 
 </script>
 
@@ -52,6 +91,7 @@ const logoSrc = computed(() =>
 /* ============== HEADER PC ================ */
 /* ========================================= */
 .header {
+  width: 100%;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -89,51 +129,60 @@ const logoSrc = computed(() =>
   background-color: var(--el-border-color);
 }
 
-/* ========================================= */
-/* ============= HEADER MÓVIL ============== */
-/* ========================================= */
-.menu-icon {
+/* ================= USER AVATAR ============== */
+.user-avatar {
+  font-size: 1.4rem; 
+  font-family: 'Segoe UI', Arial, sans-serif; 
+  color: var(--el-text-color-primary);
+}
+
+
+
+/* Estilos para el trigger del dropdown */
+.el-dropdown-link {
   cursor: pointer;
-  font-size: 32px;
-  position: absolute;
-  right: 20px;
-  top: 24px;
+  display: flex;
+  align-items: center;
+}
+.el-dropdown-link .el-icon {
+  margin-left: 4px;
+  font-size: 0.9rem;
+}
+
+/* Estilos para el menú desplegable */
+.el-dropdown-menu {
+  min-width: 160px;
+  padding: 4px 0;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background-color: var(--el-bg-color);
+}
+.el-dropdown-item {
+  padding: 8px 16px;
+  font-size: 0.95rem;
+  color: var(--el-text-color-primary);
+  transition: background-color 0.2s, color 0.2s;
+}
+.el-dropdown-item--divided {
+  border-top: 1px solid var(--el-border-color);
+  margin-top: 4px;
+}
+.el-dropdown-item:hover {
+  background-color: var(--el-button-hover-background);
   color: var(--el-text-color-primary);
 }
-
-.drawer-content {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  height: 100%;
-  padding: 20px;
+.el-dropdown-item.is-disabled {
+  color: var(--el-text-color-placeholder);
+  cursor: not-allowed;
 }
 
-.drawer-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.drawer-list li {
-  padding: 12px 0;
-  font-size: 1.2rem;
-  color: var(--el-text-color-primary);
-  border-bottom: 1px solid var(--el-border-color);
-}
-
-.drawer-list li a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.drawer-list li a:hover {
-  color: var(--el-color-primary);
-}
-
-.drawer-switch {
-  padding-top: 20px;
-  display: flex;
-  justify-content: center;
+/* Centrar en móvil */
+@media (max-width: 768px) {
+  .el-dropdown-menu {
+    min-width: 100px;
+  }
+  .el-dropdown-item {
+    padding: 6px 12px;
+  }
 }
 </style>

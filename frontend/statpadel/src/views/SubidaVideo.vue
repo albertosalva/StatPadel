@@ -1,224 +1,395 @@
-<!-- src/components/VideoUpload.vue -->
+<!-- src/views/SubidaVideo.vue -->
 <template>
-  <div class="subida-video">
-    <h2>Subida y análisis de video</h2>
-    
-    <!-- Selección de archivo -->
-    <div>
-      <label for="videoFile">Selecciona un video:</label>
-      <input id="videoFile" type="file" accept="video/*" @change="handleFileChange" />
-    </div>
-    
-    <!-- Botón para iniciar el proceso -->
-    <div v-if="file">
-      <button @click="iniciarCarga">Cargar primer frame</button>
-    </div>
-    
-    <!-- Mostrar el primer frame obtenido -->
-    <div v-if="frameImage" class="frame-container">
-      <h3>Selecciona 4 esquinas</h3>
-      <div class="image-wrapper">
-        <img 
-          :src="frameImage" 
-          alt="Primer Frame" 
-          @click="registrarPunto($event)"
-          ref="frameImg"
-        />
-        <!-- Mostrar los puntos registrados -->
-        <div 
-          v-for="(punto, index) in corners" 
-          :key="index" 
-          class="punto" 
-          :style="{ left: punto.x + 'px', top: punto.y + 'px' }">
-          {{ index + 1 }}
+  <el-container class="principal-container">
+    <!-- Header global -->
+    <AppHeader />
+
+    <!-- Main donde van los 3 pasos -->
+    <el-main class="subida-video">
+      <!-- BARRA DE STEPS -->
+      <el-steps
+        :active="activeStep"
+        finish-status="success"
+        align-center
+      >
+        <el-step title="Subir vídeo" :icon="Upload"/>
+        <el-step title="Seleccionar esquinas" :icon="Pointer"/>
+        <el-step title="Ejecutar análisis" :icon="Loading"/>
+      </el-steps>
+
+      <!-- ===== PASO 1: Subir vídeo ===== -->
+      
+      <div v-if="activeStep === 0" class="paso-1">
+
+        <!-- area de arrastrar/hacer clic -->
+        <el-upload
+          class="upload-area"
+          drag
+          accept="video/*"
+          :auto-upload="false"
+          :limit="1"
+          v-model:file-list="fileList"
+          @change="onFileChange"
+        >
+          <el-icon class="upload-icon">
+            <UploadFilled />
+          </el-icon>
+          <div class="upload-text">
+            Arrastra el vídeo aquí o <em>haz clic para seleccionar</em>
+          </div>
+          <template #tip>
+            <div class="upload-tip">
+              Solo se aceptan vídeos (.mp4, .mov, .avi…)
+            </div>
+          </template>
+        </el-upload>
+
+        <!-- Botón “Continuar” -->
+        <div style="margin-top: 16px; text-align: center;">
+          <el-button
+            type="primary"
+            :disabled="fileList.length === 0"
+            @click="continuarPaso1"
+          >
+            Continuar
+          </el-button>
         </div>
       </div>
-    </div>
-    
-    <!-- Botón para enviar esquinas -->
-    <div v-if="corners.length === 4">
-      <button @click="enviarEsquinas">Enviar esquinas</button>
-    </div>
-    
-    <!-- Botón para ejecutar el análisis del video -->
-    <div v-if="esquinasEnviadas">
-      <button @click="analizarVideo">Ejecutar análisis de video</button>
-    </div>
-    
-    <!-- Mostrar resultados del análisis -->
-    <div v-if="analisisResultado">
-      <h3>Resultado del análisis:</h3>
-      <pre>{{ analisisResultado }}</pre>
-    </div>
 
-    <!-- Mostrar ID de la coincidencia si está disponible -->
-    <div v-if="matchId">
-      <h4>ID en Mongo:</h4>
-      <p>{{ matchId }}</p>
-    </div>
+      <!-- ===== PASO 2: Seleccionar esquinas ===== -->
+      <div v-if="activeStep === 1" class="paso-2">
+        <h2>Selecciona 4 esquinas</h2>
+        <div v-if="frameImage" class="frame-container">
+          <p>Haz clic sobre la imagen para marcar cada esquina:</p>
+          <div class="image-wrapper">
+            <img
+              :src="frameImage"
+              alt="Primer frame"
+              @click="registrarPunto($event)"
+              ref="frameImg"
+            />
+            <div
+              v-for="(p, i) in corners"
+              :key="i"
+              class="punto"
+              :style="{ left: p.x + 'px', top: p.y + 'px' }"
+            >
+              {{ i + 1 }}
+            </div>
+          </div>
+        </div>
 
-    
-    <!-- Área de depuración -->
-    <div class="debug-messages">
-      <h4>Depuración</h4>
-      <ul>
-        <li v-for="(msg, index) in debugMessages" :key="index">{{ msg }}</li>
-      </ul>
-    </div>
-  </div>
+        <div style="margin-top: 16px; text-align: center;">
+          <el-button
+            type="primary"
+            :disabled="corners.length < 4"
+            @click="enviarEsquinasYContinuar"
+          >
+            Enviar esquinas y continuar
+          </el-button>
+        </div>
+      </div>
+
+      <!-- ===== PASO 3: Ejecutar análisis ===== -->
+      <div v-if="activeStep === 2" class="paso-3">
+        <h2>Ejecutar análisis</h2>
+        <div style="text-align: center; margin-top: 16px;">
+          <el-button type="primary" @click="analizarVideo">
+            Analizar vídeo
+          </el-button>
+        </div>
+        <div v-if="analisisResultado" class="resultado">
+          <h3>Resultado del análisis:</h3>
+          <pre>{{ analisisResultado }}</pre>
+        </div>
+        <div v-if="matchId" class="resultado">
+          <h4>ID en Mongo:</h4>
+          <p>{{ matchId }}</p>
+        </div>
+      </div>
+
+      <!-- ===== Depuración (opcional) ===== -->
+      <div v-if="debugMessages.length" class="debug-messages">
+        <h4>Depuración</h4>
+        <ul>
+          <li v-for="(msg, i) in debugMessages" :key="i">
+            {{ msg }}
+          </li>
+        </ul>
+      </div>
+    </el-main>
+
+    <!-- Footer global -->
+    <AppFooter />
+  </el-container>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { useVideoStore } from '../stores/videoStore';
-import { storeToRefs } from 'pinia';
+import { ref, computed } from 'vue'
+import { UploadFilled, Upload, Pointer, Loading } from '@element-plus/icons-vue'
+import { useVideoStore } from '@/stores/videoStore'
+import AppHeader from '@/components/AppHeader.vue'
+import AppFooter from '@/components/AppFooter.vue'
 
-// Se crea la instancia de la tienda.
-const videoStore = useVideoStore();
-// Se extraen las propiedades reactivas de la tienda.
-const { file, frameImage, corners, esquinasEnviadas, analisisResultado, debugMessages , matchId} = storeToRefs(videoStore);
+// 1) Instanciamos la tienda de vídeo
+const videoStore = useVideoStore()
 
-const frameImg = ref(null);
+// 2) Control del paso activo (0 = subir, 1 = esquinas, 2 = análisis)
+const activeStep = ref(0)
 
-// Maneja el cambio de archivo y delega al store para que guarde el archivo.
-const handleFileChange = (event) => {
-  const selected = event.target.files[0];
-  if (selected) {
-    videoStore.setFile(selected);
+// 3) Lista reactiva de archivos (sempre iterable)
+const fileList = ref([])
+
+// 4) Cuando cambie fileList, guardamos el archivo real en el store
+const onFileChange = (_file, newFileList) => {
+  if (newFileList.length > 0) {
+    // Usamos el último raw file
+    videoStore.setFile(newFileList[newFileList.length - 1].raw)
+  } else {
+    videoStore.setFile(null)
   }
-};
+}
 
-// Inicia la carga del video (subida y obtención del primer frame).
-const iniciarCarga = async () => {
-  await videoStore.iniciarCarga();
-};
+// 5) “Continuar” en el Paso 1: sube el video y avanza a Paso 2
+const continuarPaso1 = async () => {
+  if (fileList.value.length === 0) return
+  await videoStore.iniciarCarga()
+  activeStep.value = 1
+}
 
-// Registra un punto al hacer click sobre la imagen.
-const registrarPunto = (event) => {
-  videoStore.registrarPunto(event, frameImg.value);
-};
+// 6) Acceder a propiedades del store para Paso 2 y 3
+const frameImage = computed(() => videoStore.frameImage)
+const corners = computed(() => videoStore.corners)
+const debugMessages = computed(() => videoStore.debugMessages)
+const analisisResultado = computed(() => videoStore.analisisResultado)
+const matchId = computed(() => videoStore.matchId)
 
-// Envía las esquinas seleccionadas.
-const enviarEsquinas = async () => {
-  await videoStore.enviarEsquinas(frameImg.value);
-};
+// 7) Registrar punto sobre la imagen (Paso 2)
+const registrarPunto = event => {
+  videoStore.registrarPunto(event, frameImg.value)
+}
 
-// Ejecuta el análisis del video.
+// 8) Para enviar esquinas y pasar a Paso 3
+const enviarEsquinasYContinuar = async () => {
+  await videoStore.enviarEsquinas(frameImg.value)
+  activeStep.value = 2
+}
+
+// 9) Ejecutar análisis final (Paso 3)
 const analizarVideo = async () => {
-  await videoStore.analizarVideo();
-};
+  await videoStore.analizarVideo()
+}
 
-onMounted(() => {
-  if (frameImg.value) {
-    console.log("Imagen mostrada:", frameImg.value.clientWidth, frameImg.value.clientHeight);
-  }
-});
+// 10) Referencia a la etiqueta <img> para calcular coordenadas
+const frameImg = ref(null)
 </script>
 
 <style scoped>
-.subida-video {
-  max-width: 800px;
-  margin: 20px auto;
-  padding: 20px;
-  font-family: 'Arial', sans-serif;
-  background: #fff;
+.principal-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ---- Paso 1: Upload area ---- */
+/* ===========================
+   Contenedor principal
+   =========================== */
+
+/* ===========================
+   Barra de pasos (Steps)
+   =========================== */
+/* 1) Hacer más ancha la barra de Steps */
+.el-steps {
+  width: 90%;          /* Ocupa el 90% del contenedor padre */
+  max-width: 1000px;   /* O el valor máximo que prefieras */
+  margin: 0 auto;      /* Centrarlo horizontalmente */
+}
+
+/* ===========================
+   Paso 1: Subir vídeo
+   =========================== */
+.paso-1 {
+  width: 100%;
+  max-width: 1000px;      /* Mismo ancho que la zona de pasos */
+  margin: 0 auto;
+  text-align: center;
+}
+
+/* Título del paso */
+.paso-1 h2 {
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--el-color-primary);
+  margin-bottom: 24px;
+}
+
+.upload-area {
+  width: 80%;                       /* Ya lo tenías así para que ocupe casi todo */
+  margin: 0 auto;                   /* ① Centra el cuadro en el padre */
+  flex-direction: column;           /*     para poder apilar icono/texto/”tip” */
+  justify-content: center;          /*     y centrarlo verticalmente */
+  border: 2px dashed var(--el-border-color);
   border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background-color: var(--el-bg-color-overlay);
+  padding: 60px 20px;
+  box-sizing: border-box;
+  transition: border-color 0.25s, background-color 0.25s;
+  margin: 10px auto; /* ② Añade margen para separar del título */
 }
 
-.subida-video h2 {
+.upload-area:hover {
+  border-color: var(--el-color-primary);
+  background-color: var(--el-bg-color-light);
+}
+
+/* Ícono dentro del área de subida */
+.upload-area .el-icon {
+  font-size: 4rem;
+  color: var(--el-color-primary);
+  margin-bottom: 16px;
+}
+
+.upload-area .upload-text {
+  font-size: 1.15rem;
+  color: var(--el-text-color-primary);
+  line-height: 1.4;
+  margin-bottom: 12px;
   text-align: center;
-  color: #333;
-  margin-bottom: 20px;
 }
 
-.subida-video label {
-  font-weight: bold;
-  margin-bottom: 5px;
-  display: block;
-  color: #555;
+/* Destacar parte clicable */
+.upload-area .upload-text em {
+  color: var(--el-color-primary);
+  font-style: normal;
+  font-weight: 500;
 }
 
-.subida-video input[type="file"] {
-  margin-bottom: 15px;
-  display: block;
+/* Texto de la “tip” (subtexto) debajo del área */
+.upload-area .el-upload__tip {
+  font-size: 0.9rem;
+  color: var(--el-text-color-secondary);
+  margin-top: 16px;
 }
 
-.subida-video button {
-  background-color: #007bff;
-  color: #fff;
-  border: none;
-  padding: 10px 20px;
-  margin: 10px 0;
+
+/* ===========================
+   Botón “Continuar”
+   =========================== */
+.continuar-btn {
+  margin-top: 32px;
+}
+
+.continuar-btn .el-button {
+  min-width: 180px;
+  font-size: 1.1rem;
   border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
 }
 
-.subida-video button:hover {
-  background-color: #0056b3;
+/* Botón deshabilitado */
+.continuar-btn .el-button:disabled {
+  background-color: var(--el-bg-color-disabled);
+  color: var(--el-text-color-placeholder);
+  cursor: not-allowed;
 }
 
+
+
+
+
+/* ---- Paso 2: Selección de esquinas ---- */
 .frame-container {
-  margin: 20px 0;
+  margin-top: 16px;
   text-align: center;
 }
-
 .image-wrapper {
   position: relative;
   display: inline-block;
-  border: 2px solid #ddd;
-  border-radius: 4px;
-  overflow: hidden;
-  max-width: 100%;
 }
-
 .image-wrapper img {
-  width: 100%;
-  height: auto;
-  display: block;
+  max-width: 100%;
+  border: 1px solid var(--el-border-color);
 }
-
 .punto {
   position: absolute;
-  background-color: #28a745;
-  color: #fff;
-  font-size: 12px;
+  background-color: var(--el-color-primary);
+  color: white;
+  font-size: 0.85rem;
   font-weight: bold;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  line-height: 24px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transform: translate(-50%, -50%);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.debug-messages {
+
+
+
+/* ---- Paso 3 y Resultados ---- */
+.resultado {
   margin-top: 20px;
-  padding: 10px;
-  border: 1px solid #ccc;
-  background-color: #f1f1f1;
+  padding: 16px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 6px;
+  background-color: var(--el-bg-color-overlay);
+}
+.debug-messages {
+  margin-top: 24px;
+  padding: 12px;
+  border: 1px dashed var(--el-color-warning);
   border-radius: 4px;
-  font-size: 14px;
-  max-height: 150px;
-  overflow-y: auto;
+  background-color: var(--el-bg-color-overlay);
 }
-
-.debug-messages h4 {
-  margin: 0 0 10px 0;
-  font-size: 16px;
-  color: #555;
-}
-
 .debug-messages ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+  list-style-type: disc;
+  margin-left: 20px;
+  color: var(--el-text-color-secondary);
 }
 
-.debug-messages li {
-  margin-bottom: 5px;
-  line-height: 1.4;
+
+
+
+
+
+
+
+/* Responsive: ajustar márgenes en pantallas pequeñas */
+@media (max-width: 900px) {
+  .upload-area {
+    padding: 48px 24px;
+  }
+  .upload-icon {
+    font-size: 3rem;
+  }
+  .upload-text {
+    font-size: 1.1rem;
+  }
+  .paso-1 h2 {
+    font-size: 1.75rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .subida-video {
+    padding: 40px 12px;
+    min-height: auto;
+  }
+  .upload-area {
+    padding: 32px 16px;
+  }
+  .upload-icon {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+  }
+  .upload-text {
+    font-size: 1rem;
+  }
+  .paso-1 h2 {
+    font-size: 1.5rem;
+    margin-bottom: 24px;
+  }
 }
 </style>
