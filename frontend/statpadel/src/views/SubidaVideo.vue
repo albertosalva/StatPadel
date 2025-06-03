@@ -20,7 +20,7 @@
       <!-- ===== PASO 1: Subir vídeo ===== -->
       
       <div v-if="activeStep === 0" class="paso-1">
-
+        <h2>Sube tu vídeo</h2>
         <!-- area de arrastrar/hacer clic -->
         <el-upload
           class="upload-area"
@@ -46,21 +46,31 @@
 
         <!-- Botón “Continuar” -->
         <div style="margin-top: 16px; text-align: center;">
+          <el-button-group>
+            <el-button
+            type="primary"
+            disabled
+            @click="volverAtras"
+          >
+            <el-icon class="el-icon--right"><ArrowLeft /></el-icon>Volver
+          </el-button>
           <el-button
             type="primary"
             :disabled="fileList.length === 0"
             @click="continuarPaso1"
           >
-            Continuar
+            Continuar<el-icon class="el-icon--right"><ArrowRight /></el-icon>
           </el-button>
+          </el-button-group>
         </div>
       </div>
 
       <!-- ===== PASO 2: Seleccionar esquinas ===== -->
-      <div v-if="activeStep === 1" class="paso-2">
+      <div v-if="activeStep === 1" class="paso-1">
         <h2>Selecciona 4 esquinas</h2>
         <div v-if="frameImage" class="frame-container">
-          <p>Haz clic sobre la imagen para marcar cada esquina:</p>
+          <p>Haz clic sobre la imagen para marcar cada esquina</p>
+          <p>Haz clip en el punto para deselecionar</p>
           <div class="image-wrapper">
             <img
               :src="frameImage"
@@ -73,6 +83,7 @@
               :key="i"
               class="punto"
               :style="{ left: p.x + 'px', top: p.y + 'px' }"
+              @click.stop="deseleccionarPunto(i)"
             >
               {{ i + 1 }}
             </div>
@@ -80,31 +91,53 @@
         </div>
 
         <div style="margin-top: 16px; text-align: center;">
-          <el-button
-            type="primary"
-            :disabled="corners.length < 4"
-            @click="enviarEsquinasYContinuar"
-          >
-            Enviar esquinas y continuar
-          </el-button>
+          <el-button-group>
+            <el-button
+              type="primary"
+              @click="volverAtras"
+            >
+              <el-icon class="el-icon--right"><ArrowLeft /></el-icon>Volver
+            </el-button>
+            <el-button
+              type="primary"
+              :disabled="corners.length < 4"
+              @click="enviarEsquinasYContinuar"
+            >
+              Enviar esquinas<el-icon class="el-icon--right"><ArrowRight /></el-icon>
+            </el-button>
+          </el-button-group>
         </div>
       </div>
 
       <!-- ===== PASO 3: Ejecutar análisis ===== -->
-      <div v-if="activeStep === 2" class="paso-3">
+      <div v-if="activeStep === 2" class="paso-1">
         <h2>Ejecutar análisis</h2>
         <div style="text-align: center; margin-top: 16px;">
-          <el-button type="primary" @click="analizarVideo">
+          <el-button type="primary" @click="analizarVideo"
+            v-loading.fullscreen.lock="fullscreenLoading"
+            element-loading-text="Analizando el vídeo..."
+            element-loading-background="rgba(0, 0, 0, 0.5)">
             Analizar vídeo
           </el-button>
+          <el-button type="success" @click="onStats(matchId)" :disabled="!matchId">
+            Ver estadísticas
+          </el-button>
         </div>
-        <div v-if="analisisResultado" class="resultado">
-          <h3>Resultado del análisis:</h3>
-          <pre>{{ analisisResultado }}</pre>
-        </div>
-        <div v-if="matchId" class="resultado">
-          <h4>ID en Mongo:</h4>
-          <p>{{ matchId }}</p>
+        <div style="margin-top: 16px; text-align: center;">
+          <el-button-group>
+            <el-button
+              type="primary"
+              @click="volverAtras"
+            >
+              <el-icon class="el-icon--right"><ArrowLeft /></el-icon>Volver
+            </el-button>
+            <el-button
+              type="primary"
+              disabled
+            >
+             Continuar<el-icon class="el-icon--right"><ArrowRight /></el-icon>
+            </el-button>
+          </el-button-group>
         </div>
       </div>
 
@@ -126,13 +159,21 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { UploadFilled, Upload, Pointer, Loading } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+import { UploadFilled, Upload, Pointer, Loading, ArrowRight, ArrowLeft } from '@element-plus/icons-vue'
 import { useVideoStore } from '@/stores/videoStore'
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
 
 // 1) Instanciamos la tienda de vídeo
 const videoStore = useVideoStore()
+
+const matchId = computed(() => videoStore.matchId)
+const router = useRouter()
+
+const onStats = id => {
+  router.push({ name: 'ResultadosEstadisticas', params: { id } })
+}
 
 // 2) Control del paso activo (0 = subir, 1 = esquinas, 2 = análisis)
 const activeStep = ref(0)
@@ -161,12 +202,15 @@ const continuarPaso1 = async () => {
 const frameImage = computed(() => videoStore.frameImage)
 const corners = computed(() => videoStore.corners)
 const debugMessages = computed(() => videoStore.debugMessages)
-const analisisResultado = computed(() => videoStore.analisisResultado)
-const matchId = computed(() => videoStore.matchId)
 
 // 7) Registrar punto sobre la imagen (Paso 2)
 const registrarPunto = event => {
   videoStore.registrarPunto(event, frameImg.value)
+}
+// 7bis) Deseleccionar el punto índice `index`
+const deseleccionarPunto = (index) => {
+  // Simplemente sacamos esa posición del array corners en el store
+  videoStore.corners.splice(index, 1)
 }
 
 // 8) Para enviar esquinas y pasar a Paso 3
@@ -175,13 +219,28 @@ const enviarEsquinasYContinuar = async () => {
   activeStep.value = 2
 }
 
-// 9) Ejecutar análisis final (Paso 3)
-const analizarVideo = async () => {
-  await videoStore.analizarVideo()
-}
-
 // 10) Referencia a la etiqueta <img> para calcular coordenadas
 const frameImg = ref(null)
+
+const fullscreenLoading = ref(false)
+
+// 9) Ejecutar análisis final (Paso 3)
+const analizarVideo = async () => {
+  fullscreenLoading.value = true
+  try {
+    await videoStore.analizarVideo()
+  } finally {
+    fullscreenLoading.value = false
+  }
+}
+
+
+
+const volverAtras = () => {
+  if (activeStep.value > 0) {
+    activeStep.value -= 1
+  }
+}
 </script>
 
 <style scoped>
@@ -217,7 +276,7 @@ const frameImg = ref(null)
 }
 
 /* Título del paso */
-.paso-1 h2 {
+h2 {
   font-size: 2rem;
   font-weight: 600;
   color: var(--el-color-primary);
@@ -302,27 +361,42 @@ const frameImg = ref(null)
   margin-top: 16px;
   text-align: center;
 }
+
+/* Wrapper relativo para que los “punto” se posicionen sobre la imagen */
 .image-wrapper {
   position: relative;
   display: inline-block;
 }
+
+/* Ajuste de la imagen para que nunca sea más alta que la ventana */
 .image-wrapper img {
+  /* No superar el 80% de la altura de la ventana */
+  max-height: 80vh;
+  /* Ancho automático para mantener proporción */
+  width: auto;
+  /* Tampoco desbordar el contenedor padre */
   max-width: 100%;
   border: 1px solid var(--el-border-color);
+  display: block;
+  margin: 0 auto;
 }
+
+/* Cada “punto” se dibuja como círculo centrado en la coordenada clicada */
 .punto {
   position: absolute;
   background-color: var(--el-color-primary);
   color: white;
   font-size: 0.85rem;
   font-weight: bold;
-  width: 20px;
-  height: 20px;
+  width: 25px;
+  height: 25px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Ajusta para centrar el punto exactamente en la coordenada */
   transform: translate(-50%, -50%);
+  cursor: pointer;
 }
 
 

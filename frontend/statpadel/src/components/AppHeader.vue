@@ -4,7 +4,9 @@
   <el-header class="header">
     <!-- Logo -->
     <div class="header-logo">
-      <el-image :src="logoSrc" alt="Logo StatPadel" fit="contain" style="height: 80px;"/>
+      <router-link to="/principal">
+        <el-image :src="logoSrc" alt="Logo StatPadel" fit="contain" style="height: 80px;"/>
+      </router-link>
     </div>
 
 		<!-- Botones para escritorio (solo visibles en escritorio) -->

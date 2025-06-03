@@ -34,6 +34,7 @@ exports.getFrame = async (req, res) => {
 exports.setCorners = async (req, res) => {
   try {
     // Envía una solicitud POST al endpoint /set_corners de Flask con el body recibido.
+    console.log("Body recibido en setCorners:", req.body);
     const response = await axios.post(`${FLASK_URL}/set_corners`, req.body);
     return res.json(response.data);
   } catch (error) {
