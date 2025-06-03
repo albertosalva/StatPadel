@@ -7,6 +7,9 @@ export const useVideoStore = defineStore('video', {
     matchId: null,
     file: null,
     frameImage: "data:image/jpeg;base64,...",  // Imagen de placeholder inicial
+    //frameImg: null,
+    displayWidth: 0,
+    displayHeight: 0,
     corners: [],
     esquinasEnviadas: false,
     analisisResultado: null,
@@ -73,7 +76,6 @@ export const useVideoStore = defineStore('video', {
     },
 
     // Registra un punto (coordenada) al hacer click en la imagen.
-    // CAMBIAR AL COMPONENTE
     registrarPunto(event, frameImg) {
       if (!frameImg) 
         return;
@@ -89,16 +91,27 @@ export const useVideoStore = defineStore('video', {
       }
     },
 
+    // Recibe la imagem para sacar el tamaño
+    enviarImage(frameImg) {
+      if (!frameImg) {
+        this.agregarDebug("No hay imagen para enviar.");
+        return;
+      }
+      this.displayWidth = frameImg.clientWidth;
+      this.displayHeight = frameImg.clientHeight;
+      this.agregarDebug(`Enviando imagen con tamaño: ${frameImg.clientWidth}x${frameImg.clientHeight}`);
+    },
+
     // Envía las esquinas seleccionadas a la API.
-    async enviarEsquinas(frameImg) {
+    async enviarEsquinas() {
       if (this.corners.length !== 4) {
         this.agregarDebug("Debe seleccionar 4 puntos antes de enviar.");
         return;
       }
       try {
         const esquinasFormateadas = this.corners.map(p => [p.x, p.y]);
-        const display_width = frameImg.clientWidth;
-        const display_height = frameImg.clientHeight;
+        const display_width = this.displayWidth
+        const display_height = this.displayHeight
         const payload = {
           corners: esquinasFormateadas,
           display_width,
