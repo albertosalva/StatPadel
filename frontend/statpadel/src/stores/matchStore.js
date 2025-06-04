@@ -15,7 +15,8 @@ export const useMatchStore = defineStore('match', {
       this.loading = true
       this.error = null
       try {
-        this.matches = await matchService.getMyMatches()
+        const res = await matchService.getMyMatches()
+        this.matches = res.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate))
       } catch (err) {
         this.error = err.response?.data?.error || err.message
       } finally {
@@ -23,7 +24,7 @@ export const useMatchStore = defineStore('match', {
       }
     },
     async deleteMatch(id) {
-      if (!confirm('¿Seguro que quieres eliminar este partido?')) return
+      //if (!confirm('¿Seguro que quieres eliminar este partido?')) return
       try {
         await matchService.deleteMatch(id)
         this.matches = this.matches.filter(m => m._id !== id)

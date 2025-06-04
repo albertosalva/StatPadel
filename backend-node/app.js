@@ -44,6 +44,9 @@ app.use('/api/video', videoRoutes);
 const matchRoutes = require('./routes/matchRoutes');
 app.use('/api/matches', matchRoutes);
 
+// Middleware para servir archivos estáticos de la carpeta "uploads"
+app.use('/videos', express.static(path.join(__dirname, 'uploads')));
+
 
 // Arranque del servidor
 const PORT = process.env.PORT || 3000;

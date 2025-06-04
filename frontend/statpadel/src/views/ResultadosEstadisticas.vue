@@ -1,98 +1,205 @@
 <template>
-  <div class="estadisticas-partido">
-    <h2>Estadísticas del partido</h2>
+  <el-container class="estadisticas-container">
+    <AppHeader/>
 
-    <div v-if="loading" class="loading">Cargando estadísticas…</div>
-    <div v-else-if="error" class="error">Error: {{ error }}</div>
-    <div v-else-if="!match.analysis" class="empty">Este partido aún no tiene estadísticas.</div>
-    <div v-else>
-      <h3>Jugadores</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Jugador</th>
-            <th>Distancia total (m)</th>
-            <th>Vel. media (m/s)</th>
-            <th>Vel. máxima (m/s)</th>
-            <th>Puntos</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(data, playerId) in match.analysis.players" :key="playerId">
-            <td>{{ playerId }}</td>
-            <td>{{ data.total_distance.toFixed(2) }}</td>
-            <td>{{ data.average_speed.toFixed(2) }}</td>
-            <td>{{ data.max_speed.toFixed(2) }}</td>
-            <td>{{ data.n_points }}</td>
-          </tr>
-        </tbody>
-      </table>
+    <el-main>
+      <h2>Estadísticas del partido</h2>
 
-      <h3>Bola</h3>
-      <ul>
-        <li>Distancia total: {{ match.analysis.ball.total_distance.toFixed(2) }} m</li>
-        <li>Velocidad media: {{ match.analysis.ball.average_speed.toFixed(2) }} m/s</li>
-        <li>Velocidad máxima: {{ match.analysis.ball.max_speed.toFixed(2) }} m/s</li>
-        <li>Puntos: {{ match.analysis.ball.n_points }}</li>
-      </ul>
-    </div>
-  </div>
+      <div v-if="loading">
+        <el-skeleton :rows="5" animated />
+      </div>
+
+      <div v-else-if="error">
+        <el-alert type="error" :title="error" show-icon />
+      </div>
+
+      <div v-else-if="!match.analysis">
+        <el-empty description="Este partido aún no tiene estadísticas." />
+      </div>
+
+      <div v-else>
+        <el-row :gutter="20">
+          <!-- Vídeo -->
+          <el-col :xs="24" :md="12">
+            <el-card shadow="hover">
+              <template #header>
+                <span>Vídeo del partido</span>
+              </template>
+              <video
+                v-if="videoUrl"
+                controls
+                style="width: 100%; border-radius: 8px"
+                :src="videoUrl"
+              />
+            </el-card>
+          </el-col>
+
+          <!-- Bola -->
+          <el-col :xs="24" :md="6">
+            <el-card shadow="hover">
+              <template #header>
+                <span>Estadísticas de la Bola</span>
+              </template>
+              <BallStatsChart v-if="match?.analysis?.ball" :stats="match.analysis.ball" />
+            </el-card>
+          </el-col>
+
+          <!-- Mapa de calor -->
+          <el-col :xs="24" :md="6">
+            <el-card shadow="hover">
+              <template #header>
+                <span>Mapa de calor</span>
+              </template>
+              
+            </el-card>
+          </el-col>
+        </el-row>
+
+        <!-- Jugadores -->
+        <el-row :gutter="20" style="margin-top: 20px">
+          <el-col :span="24">
+            <el-card shadow="hover">
+              <template #header>
+                <span>Estadísticas de los jugadores</span>
+              </template>
+              <JugadoresEstadisticas v-if="match?.analysis?.players" :players="match.analysis.players" />
+            </el-card>
+          </el-col>
+        </el-row>
+      </div>
+    </el-main>
+
+
+    <AppFooter/>
+
+  </el-container>
+
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import AppHeader from '@/components/AppHeader.vue'
+import AppFooter from '@/components/AppFooter.vue'
+import BallStatsChart from '@/components/BolaEstadisticas.vue'
+import JugadoresEstadisticas from '@/components/JugadoresEstadisticas.vue'
+
+
+import { onMounted, ref, computed} from 'vue'
 import { useRoute } from 'vue-router'
+import matchService from '@/services/matchService'
+import axios from 'axios'
 
 const route = useRoute()
 const match = ref(null)
 const loading = ref(true)
 const error = ref(null)
 
-import matchService from '@/services/matchService'
-
 onMounted(async () => {
   try {
     const id = route.params.id
     match.value = await matchService.getMatchById(id)
+    console.log('MATCH:', match.value)
   } catch (err) {
     error.value = err.response?.data?.error || err.message
   } finally {
     loading.value = false
   }
 })
+
+const videoUrl = computed(() => {
+  const url = match.value?.videoPath ? `${axios.defaults.baseURL}${match.value.videoPath}` : ''
+  console.log('VIDEO URL:', url)
+  return url
+})
+
+
 </script>
 
 <style scoped>
-.estadisticas-partido {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 1rem;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-h2, h3 {
-  color: #333;
-  margin-bottom: 1rem;
-}
-
-table {
+.estadisticas-container {
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 2rem;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
 }
-table th, table td {
-  padding: 0.5rem;
-  border-bottom: 1px solid #ddd;
+
+
+/* ======================== */
+/* Estilos para títulos */
+/* ======================== */
+h2 {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 20px;
+  color: var(--el-color-primary);
   text-align: center;
 }
 
-.loading, .error, .empty {
-  text-align: center;
-  margin: 2rem 0;
+/* ======================== */
+/* Contenedores y tarjetas */
+/* ======================== */
+.el-card {
+  border-radius: 12px;
+  transition: box-shadow 0.3s ease;
 }
-.error {
-  color: red;
+
+.el-card:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+/* ======================== */
+/* Gráficas de jugadores */
+/* ======================== */
+.jugadores-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.chart-card {
+  flex: 1 1 30%;
+  min-width: 280px;
+  max-width: 100%;
+  padding: 20px;
+  height: 300px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.chart-card canvas {
+  height: 220px !important;
+  max-height: 220px !important;
+}
+
+/* ======================== */
+/* Responsive */
+/* ======================== */
+@media (max-width: 768px) {
+  .jugadores-stats {
+    flex-direction: column;
+  }
+
+  .chart-card {
+    height: auto;
+    min-height: 300px;
+  }
+
+  video {
+    max-height: 250px;
+  }
+}
+
+/* ======================== */
+/* Video player */
+/* ======================== */
+video {
+  width: 100%;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
 </style>

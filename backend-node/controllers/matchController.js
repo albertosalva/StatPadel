@@ -1,6 +1,7 @@
 // controllers/matchController.js
 const Match = require('../models/Match')
 const mongoose = require('mongoose');
+const path = require('path');
 
 // Esta de devolver todos los partidos de un usuario
 exports.getMyMatches = async (req, res) => {
@@ -63,11 +64,16 @@ exports.getMatchById = async (req, res) => {
   }
 
   try {
-    const match = await Match.findById(id);
+    const match = await Match.findById(id).lean()
     if (!match) return res.status(404).json({ error: "Partido no encontrado" });
+
+    const filename = path.basename(match.filePath)
+    const userId = match.owner.toString()
+    match.videoPath = `/videos/${userId}/${filename}`
 
     return res.json(match);
   } catch (err) {
+    console.error('Error en getMatchById:', err)
     return res.status(500).json({ error: err.message });
   }
 };
