@@ -22,7 +22,13 @@ const upload = multer({ storage: storage });
 // Endpoint para subir el video temporalmente (sin análisis)
 router.post('/upload_video_temp', upload.single('file'), videoController.uploadVideoTemp);
 
+router.post('/load_frame', express.json(), videoController.loadFrame);
+
+router.get('/get_frame', videoController.getFrame);
+
 // Endpoint para subir el video y enviarlo a FastAPI para análisis
 router.post('/upload_video', checkAuth, upload.single('file'), videoController.uploadVideo);
+
+
 
 module.exports = router;

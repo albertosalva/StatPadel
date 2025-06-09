@@ -123,7 +123,7 @@ export const useVideoStore = defineStore('video', {
       } catch (error) {
         this.agregarDebug(`Error en enviarEsquinas: ${error.message}`);
       }
-    },
+    }, 
 
     // Envía el video para que se realice el análisis y guarda el resultado.
     async analizarVideo() {
@@ -131,9 +131,21 @@ export const useVideoStore = defineStore('video', {
         this.agregarDebug("No hay archivo para analizar.");
         return;
       }
+      if (this.corners.length !== 4) {
+        this.agregarDebug("Debe seleccionar 4 puntos antes de analizar.");
+        return;
+      }
       try {
         this.agregarDebug("Iniciando análisis de video con upload_video");
-        const { matchId, analysis } = await videoService.uploadVideo(this.file);
+        const esquinasFormateadas = this.corners.map(p => [p.x, p.y]);
+        const display_width = this.displayWidth
+        const display_height = this.displayHeight
+        const payload = {
+          corners: esquinasFormateadas,
+          display_width,
+          display_height
+        };
+        const { matchId, analysis } = await videoService.uploadVideo(this.file, payload);
         this.matchId           = matchId
         this.analisisResultado = analysis
         this.agregarDebug(`Respuesta de upload_video: ${JSON.stringify({matchId, analysis})}`);

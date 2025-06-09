@@ -259,7 +259,7 @@ const enviarEsquinasYContinuar = async () => {
 const analizarVideo = async () => {
   fullscreenLoading.value = true
   try {
-    await videoStore.enviarEsquinas()
+    //await videoStore.enviarEsquinas()
     await videoStore.analizarVideo()
   } finally {
     fullscreenLoading.value = false

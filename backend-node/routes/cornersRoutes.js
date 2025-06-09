@@ -10,10 +10,4 @@ router.post('/load_video', cornersController.loadVideo);
 // Endpoint para obtener el primer frame (en base64)
 router.get('/get_frame', cornersController.getFrame);
 
-// Endpoint para enviar las esquinas seleccionadas por el usuario
-router.post('/set_corners', cornersController.setCorners);
-
-// (Opcional) Endpoint para obtener las esquinas (para polling, si es necesario)
-router.get('/get_corners', cornersController.getCorners);
-
 module.exports = router;

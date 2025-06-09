@@ -64,39 +64,10 @@ def select_corners(frame):
     roi = np.array(corners, dtype=np.float32)
     return roi
 
-
-
-def select_corners_remote(timeout=60):
-    """
-    Espera (por polling) hasta que el usuario haya seleccionado las esquinas a través de la UI web.
-    Llama al endpoint /get_corners del servicio Flask para comprobar si ya se han enviado.
-    """
-    flask_url = "http://localhost:5000"  # Asegúrate de que la URL y puerto sean correctos.
-    print("Esperando que el usuario seleccione las esquinas desde la UI web...")
-
-    start_time = time.time()
-    while time.time() - start_time < timeout:
-        try:
-            resp = requests.get(f"{flask_url}/get_corners")
-            # Si el código de estado es 204, significa que aún no hay esquinas.
-            if resp.status_code == 200:
-                data = resp.json()
-                corners = data.get("corners")
-                if corners and len(corners) == 4:
-                    print("Esquinas recibidas:", corners)
-                    return np.array(corners, dtype=np.float32)
-            else:
-                print("Esquinas pendientes, esperando...")
-        except Exception as e:
-            print("Error al contactar el endpoint /get_corners:", e)
-        time.sleep(1)
-
-    raise TimeoutError("No se seleccionaron las esquinas a tiempo.")
-
     
 
 
-def video_analyzer(video_path, output_path):
+def video_analyzer(video_path, output_path, court_polygon):
     """
     Analiza un video en la ruta especificada y guarda un video
     con las detecciones en la ruta de salida.
@@ -123,8 +94,9 @@ def video_analyzer(video_path, output_path):
     # Seleccionar las esquinas de la pista en el primer frame
     first_frame = frames[0]
     #court_polygon = select_corners(first_frame)
-    court_polygon = select_corners_remote()
-    print("Esquinas seleccionadas:", court_polygon)
+    #court_polygon = select_corners_remote()
+    #print("Esquinas seleccionadas:", court_polygon)
+    print("Esquinas de la pista:", court_polygon.tolist())
     court_corners = court_polygon.tolist()
 
     # Obtener dimensiones del video

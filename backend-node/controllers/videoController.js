@@ -82,10 +82,26 @@ exports.uploadVideo = async (req, res) => {
 
     console.log('req.user en uploadVideo:', req.user)
 
-    
+    // 4 Leer payload de esquinas y dimensiones
+    const { corners, display_width, display_height } = req.body;
+    console.log('[DEBUG] Payload recibido en Node:', {
+      corners,
+      display_width,
+      display_height
+    });
+    if (!corners) {
+      console.log('[ERROR] Faltan las esquinas (corners)');
+      return res.status(400).json({ error: 'Faltan las esquinas (corners)' });
+    }
+
     // Crear un formulario para reenviar el archivo a FastAPI
     const form = new FormData();
     form.append('file', fs.createReadStream(destPath), req.file.originalname);
+    form.append('corners', corners);
+    form.append('display_width', display_width);
+    form.append('display_height', display_height);
+    console.log('[DEBUG] FormData preparada para FastAPI');
+
     
     // Realizamos la petición POST a FastAPI
     const response = await axios.post(`${FLASK_FastAPI}/upload_video`, form, {

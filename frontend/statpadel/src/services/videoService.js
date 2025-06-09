@@ -43,14 +43,27 @@ export default {
   },
 
   // Envía el video para que se realice el análisis.
-  async uploadVideo(file) {
+  async uploadVideo(file, payload) {
     const formData = new FormData();
+
+    
+
+    const { corners, display_width, display_height } = payload;
+    console.log('[videoService] Payload recibido:', payload);
+
     formData.append('file', file, file.name);
+    formData.append('corners', JSON.stringify(corners));
+    formData.append('display_width', display_width);
+    formData.append('display_height', display_height);
+
+    console.log('[videoService] FormData campos:',
+      'corners=', formData.get('corners'),
+      'display_width=', formData.get('display_width'),
+      'display_height=', formData.get('display_height')
+    );
 
     const api = getApi();
-    const response = await api.post('/upload_video', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
+    const response = await api.post('/upload_video', formData);
     return response.data;
   }
 };

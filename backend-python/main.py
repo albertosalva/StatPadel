@@ -3,7 +3,8 @@
 # Importacion de librerias
 import os
 import uvicorn
-from fastapi import FastAPI, File, UploadFile
+import json
+from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 
@@ -12,6 +13,7 @@ from homography import transform_json_homography
 from homography import plot_transformed_trajectories
 from exporter import export_to_json
 from match_statistics import compute_match_statistics
+from utils import ui_to_frame_corners
 
 # Creacion de la aplicacion
 app = FastAPI()
@@ -38,7 +40,7 @@ async def upload_video_temp(file: UploadFile = File(...)):
     return {"message": "Archivo subido a temp correctamente", "temp_file_path": temp_file_path}
 
 @app.post("/upload_video")
-async def upload_video(file: UploadFile = File(...)):
+async def upload_video(file: UploadFile = File(...), corners: str = Form(...), display_width: float = Form(...), display_height: float = Form(...)):
     # Verificar y crear la carpeta temp si no existe
     os.makedirs("temp", exist_ok=True)
 
@@ -47,13 +49,38 @@ async def upload_video(file: UploadFile = File(...)):
     with open(temp_file_path, "wb") as file_object:
         file_object.write(await file.read())
 
+    try:
+        src_corners = json.loads(corners)
+        if len(src_corners) != 4:
+            raise ValueError()
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "El campo 'corners' debe ser un JSON con 4 pares [x,y]"}
+        )
+    
+    try:
+        src_corners = ui_to_frame_corners(
+            video_path=temp_file_path,
+            ui_corners=src_corners,
+            display_width=display_width,
+            display_height=display_height
+        )
+    except RuntimeError as e:
+        os.remove(temp_file_path)
+        return JSONResponse(
+            status_code=400,
+            content={"error": "El campo 'corners' conversion"}
+        )
+    
+
     # Definir las rutas de salida para el video procesado y el JSON de resultados
     output_video_path = "videos_results/result_videopadel.mp4"
     json_filename = "detecciones.json"
     bucket="Partidos"
 
     # Ejecutar el analisis del video
-    results = video_analyzer(temp_file_path, output_video_path)
+    results = video_analyzer(temp_file_path, output_video_path, src_corners)
     if results is None:
         # Si falla el procesamiento, se retorna un error
         return JSONResponse(status_code=400, content={"error": "El análisis del video falló."})
