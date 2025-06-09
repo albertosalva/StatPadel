@@ -16,54 +16,29 @@ function getApi() {
 export default {
   // Sube el archivo de video a una carpeta temporal.
   async uploadVideoTemp(file) {
+    const api = getApi();
     const formData = new FormData();
     formData.append('file', file, file.name);
-    const response = await axios.post('/api/video/upload_video_temp', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
-    return response.data;
+    //const response = await api.post('/api/video/upload_video_temp', formData);
+    //return response.data;
+    const { data } = await api.post('/upload_video_temp', formData);
+    return data;
   },
 
-  // Llama a la API para cargar el video en el backend (por ejemplo, para extraer el primer frame).
-  async loadVideo(videoPath) {
-    const response = await axios.post('/api/corners/load_video', { video_path: videoPath });
-    return response.data;
-  },
-
-  // Obtiene el primer frame del video.
-  async getFrame() {
-    const response = await axios.get('/api/corners/get_frame');
-    return response.data;
-  },
-
-  // Envía los datos de las esquinas seleccionadas.
-  async sendCorners(payload) {
-    const response = await axios.post('/api/corners/set_corners', payload);
-    return response.data;
+  async loadFrame(fileName) {
+    const api = getApi();
+    const { data } = await api.post('/load_frame', { fileName });
+    return data;  
   },
 
   // Envía el video para que se realice el análisis.
-  async uploadVideo(file, payload) {
-    const formData = new FormData();
-
-    
+  async uploadVideo(fileName, payload) {
 
     const { corners, display_width, display_height } = payload;
     console.log('[videoService] Payload recibido:', payload);
 
-    formData.append('file', file, file.name);
-    formData.append('corners', JSON.stringify(corners));
-    formData.append('display_width', display_width);
-    formData.append('display_height', display_height);
-
-    console.log('[videoService] FormData campos:',
-      'corners=', formData.get('corners'),
-      'display_width=', formData.get('display_width'),
-      'display_height=', formData.get('display_height')
-    );
-
     const api = getApi();
-    const response = await api.post('/upload_video', formData);
+    const response = await api.post('/upload_video', { fileName, corners, display_width, display_height });
     return response.data;
   }
 };

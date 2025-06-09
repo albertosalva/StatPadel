@@ -216,7 +216,7 @@ const svg = `
 const matchId = computed(() => videoStore.matchId)
 const frameImage = computed(() => videoStore.frameImage)
 const corners = computed(() => videoStore.corners)
-// const debugMessages = computed(() => videoStore.debugMessages)
+//const debugMessages = computed(() => videoStore.debugMessages)
 
 // Navegar a estadísticas
 const onStats = (id) => {

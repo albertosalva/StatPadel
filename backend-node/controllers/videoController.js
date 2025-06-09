@@ -1,6 +1,7 @@
 // controllers/videoController.js
 
 const axios = require('axios');
+const path = require('path');
 const FormData = require('form-data');
 const fs = require('fs');
 const { use } = require('../routes/authRoutes');
@@ -17,47 +18,69 @@ const host = process.env.API_HOST;
 const port = process.env.API_PORT_VIDEO;
 const FLASK_FastAPI = `http://${host}:${port}`;
 
-// Función para subir un video temporalmente (sin análisis) y reenviarlo a FastAPI
+
+//Guardar vídeo en temp/
 exports.uploadVideoTemp = async (req, res) => {
+  console.log('[uploadVideoTemp] recibido:', req.file.originalname);
+  // Multer ya guardó en temp/, devolvemos el nombre
+  //res.json({ fileName: req.file.originalname });
+  console.log('Nombre del fichero cambiado:', req.file.filename)
+  res.json({ fileName: req.file.filename });
+};
+
+exports.loadFrame = async (req, res) => {
+  const { fileName } = req.body;
+  if (!fileName) {
+    return res.status(400).json({ error: 'Falta fileName en el body' });
+  }
+
+  // Leer de la carpeta temp de Node
+  const filePath = path.join(__dirname, '..', 'temp', fileName);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'Vídeo no encontrado en temp' });
+  }
+
+  // FormData con el fichero
+  const form = new FormData();
+  form.append('file', fs.createReadStream(filePath), fileName);
+
   try {
-    console.log("Archivo recibido en Node (uploadVideoTemp):", req.file);
-    const filePath = req.file.path;
-    
-    // Crear un objeto FormData y adjuntar el archivo usando un stream
-    const form = new FormData();
-    form.append('file', fs.createReadStream(filePath), req.file.originalname);
-    
-    // Reenviar la petición a FastAPI (asegúrate de que la URL y puerto sean correctos)
-    const response = await axios.post(`${FLASK_FastAPI}/upload_video_temp`, form, {
-      headers: form.getHeaders()
-    });
-    
-    // Una vez reenviado, elimina el archivo temporal de Node (si lo deseas)
-    fs.unlink(filePath, (err) => {
-      if (err) console.error('Error al eliminar el archivo temporal:', err);
-    });
-    
-    // Retorna la respuesta que envía FastAPI
-    res.json(response.data);
-  } catch (error) {
-    console.error("Error en uploadVideoTemp:", error.message);
-    res.status(error.response ? error.response.status : 500).json({ error: error.response ? error.response.data : "Error al subir el archivo" });
+    const response = await axios.post(
+      `${FLASK_FastAPI}/extract_frame_file`,
+      form,
+      { headers: form.getHeaders() }
+    );
+    return res.json(response.data);
+  } catch (err) {
+    console.error('[proxyExtractFrame] error:', err.response?.data || err.message);
+    return res
+      .status(err.response?.status || 500)
+      .json({ error: err.response?.data?.detail || err.message });
   }
 };
+
 
 // Función para subir un video y enviarlo a FastAPI para análisis
 exports.uploadVideo = async (req, res) => {
   try {
-    // La ruta del archivo subido (gestionado por multer)
-    const fs   = require('fs');
-    const path = require('path');
 
     const owner = req.user.id
     if (!owner) {
       return res.status(401).json({ error: 'Usuario no autenticado' })
     }
-
     //  ➤ Crear carpeta uploads/<owner> si no existe
+    
+    const { fileName, corners, display_width, display_height } = req.body;
+    console.log('[uploadVideo] recibido:', fileName, corners, display_width, display_height);
+    if (!fileName) {
+      return res.status(400).json({ error: 'Falta fileName' });
+    }
+
+    const tempPath = path.join(__dirname, '..', 'temp', fileName);
+    if (!fs.existsSync(tempPath)) {
+      return res.status(404).json({ error: 'Vídeo no encontrado en temp' });
+    }
+
     const baseUploadDir = path.join(__dirname, '../uploads');
     const userDir = path.join(baseUploadDir, owner);
     if (!fs.existsSync(userDir)) {
@@ -65,25 +88,25 @@ exports.uploadVideo = async (req, res) => {
     }
 
     //  ➤ Definir nueva ruta definitiva y mover archivo
-    const destPath = path.join(userDir, req.file.originalname);
-    fs.renameSync(req.file.path, destPath);
+    const destPath = path.join(userDir, fileName);
+    fs.renameSync(tempPath, destPath);
     console.log('Vídeo movido a:', destPath)
+
 
     const matchDoc = await Match.create({
       owner: owner,
-      videoName: req.file.originalname,
+      videoName: fileName,
       filePath: destPath
     })
     const matchId = matchDoc._id.toString();
     console.log('aaaaa Match guardado en Mongo con _id =', matchId);
 
-    console.log("Archivo recibido:", req.file);
+    console.log("Procesando vídeo temporal:", fileName);
     //const filePath = req.file.path;
 
     console.log('req.user en uploadVideo:', req.user)
 
     // 4 Leer payload de esquinas y dimensiones
-    const { corners, display_width, display_height } = req.body;
     console.log('[DEBUG] Payload recibido en Node:', {
       corners,
       display_width,
@@ -96,11 +119,16 @@ exports.uploadVideo = async (req, res) => {
 
     // Crear un formulario para reenviar el archivo a FastAPI
     const form = new FormData();
-    form.append('file', fs.createReadStream(destPath), req.file.originalname);
-    form.append('corners', corners);
-    form.append('display_width', display_width);
-    form.append('display_height', display_height);
+    //form.append('fileName', fileName);
+    form.append('file_name', fileName);
+    form.append('corners', JSON.stringify(corners));
+    form.append('display_width', String(display_width));
+    form.append('display_height', String(display_height));
     console.log('[DEBUG] FormData preparada para FastAPI');
+    console.log('[DEBUG] FormData preparada para FastAPI con campos:');
+    console.log('  corners =', corners);
+    console.log('  display_width =', display_width);
+    console.log('  display_height =', display_height);
 
     
     // Realizamos la petición POST a FastAPI

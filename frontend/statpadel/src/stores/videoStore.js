@@ -6,6 +6,7 @@ export const useVideoStore = defineStore('video', {
   state: () => ({
     matchId: null,
     file: null,
+    fileName: null,
     frameImage: "data:image/jpeg;base64,...",  // Imagen de placeholder inicial
     //frameImg: null,
     displayWidth: 0,
@@ -48,31 +49,13 @@ export const useVideoStore = defineStore('video', {
         return;
       }
 
-      // Verifica si el archivo es un video.
-      const subido = await this.subirArchivoTemp();
-      if (!subido) 
-        return;
+      const { fileName } = await videoService.uploadVideoTemp(this.file);
+      this.agregarDebug(`Archivo subido con fileName=${fileName}`);
+      this.fileName = fileName;
 
-      // Llama a la API para cargar el video y obtener el primer frame.
-      try {
-        const videoPath = `temp/${this.file.name}`;
-        this.agregarDebug(`Llamando a load_video con ruta: ${videoPath}`);
-        await videoService.loadVideo(videoPath);
-
-        this.agregarDebug("Solicitando primer frame con get_frame");
-        const frameResponse = await videoService.getFrame();
-        if (frameResponse && frameResponse.frame) {
-          console.log("RAW FRAME:", frameResponse.frame.slice(0,20))
-          console.log("FINAL URI:", `data:image/jpeg;base64,${frameResponse.frame}`.slice(0,25))
-          
-          this.frameImage = `data:image/jpeg;base64,${frameResponse.frame}`;
-          this.agregarDebug("Primer frame obtenido correctamente");
-        } else {
-          this.agregarDebug("No se pudo obtener el frame");
-        }
-      } catch (error) {
-        this.agregarDebug(`Error en iniciarCarga: ${error.message}`);
-      }
+      const { frame } = await videoService.loadFrame(fileName);
+      this.frameImage = `data:image/jpeg;base64,${frame}`;
+      this.agregarDebug("Primer frame obtenido correctamente");
     },
 
     // Registra un punto (coordenada) al hacer click en la imagen.
@@ -145,7 +128,7 @@ export const useVideoStore = defineStore('video', {
           display_width,
           display_height
         };
-        const { matchId, analysis } = await videoService.uploadVideo(this.file, payload);
+        const { matchId, analysis } = await videoService.uploadVideo(this.fileName, payload);
         this.matchId           = matchId
         this.analisisResultado = analysis
         this.agregarDebug(`Respuesta de upload_video: ${JSON.stringify({matchId, analysis})}`);

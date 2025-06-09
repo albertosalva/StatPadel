@@ -4,7 +4,11 @@
 import os
 import uvicorn
 import json
-from fastapi import FastAPI, File, UploadFile, Form
+import base64
+import cv2
+import numpy as np
+
+from fastapi import FastAPI, File, UploadFile, Form, Body, HTTPException
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 
@@ -14,6 +18,7 @@ from homography import plot_transformed_trajectories
 from exporter import export_to_json
 from match_statistics import compute_match_statistics
 from utils import ui_to_frame_corners
+
 
 # Creacion de la aplicacion
 app = FastAPI()
@@ -26,28 +31,58 @@ influx_token = os.getenv("INFLUXDB_TOKEN")
 influx_org = os.getenv("INFLUX_ORG")
 influx_bucket = os.getenv("INFLUX_BUCKET")
 
-@app.post("/upload_video_temp")
-async def upload_video_temp(file: UploadFile = File(...)):
-    # Crear la carpeta temp si no existe
-    os.makedirs("temp", exist_ok=True)
-    
-    # Guardar el archivo subido en la carpeta temp
-    temp_file_path = os.path.join("temp", file.filename)
-    with open(temp_file_path, "wb") as file_object:
-        file_object.write(await file.read())
-    
-    # Aquí puedes incluir más lógica si deseas (por ejemplo, retornar la ruta absoluta)
-    return {"message": "Archivo subido a temp correctamente", "temp_file_path": temp_file_path}
+
+
+@app.post("/extract_frame_file")
+async def extract_frame_file(file: UploadFile = File(...)):
+    """
+    Recibe el vídeo como UploadFile, lo guarda temporalmente,
+    extrae el primer frame con VideoCapture, lo codifica en base64
+    y lo devuelve.
+    """
+    # 1) Guardar el fichero en temp/
+    file_name = file.filename
+    temp_path = os.path.join("temp", file_name)
+    contents = await file.read()
+    with open(temp_path, "wb") as f:
+        f.write(contents)
+    print(f"[extract_frame_file] Guardado temp/{file_name} ({len(contents)} bytes)")
+
+    # 2) Abrir con VideoCapture
+    cap = cv2.VideoCapture(temp_path)
+    ret, frame = cap.read()
+    cap.release()
+
+    # (Opcional) borrar el vídeo temporal
+    # os.remove(temp_path)
+
+    if not ret or frame is None:
+        print("[extract_frame_file] ERROR: no se leyó primer frame")
+        raise HTTPException(status_code=500, detail="No se pudo leer el primer frame")
+
+    # 3) Codificar a JPEG + base64
+    ok, buf = cv2.imencode('.jpg', frame)
+    if not ok:
+        print("[extract_frame_file] ERROR: cv2.imencode falló")
+        raise HTTPException(status_code=500, detail="Error al codificar frame")
+
+    b64 = base64.b64encode(buf).decode('utf-8')
+    print(f"[extract_frame_file] Primer frame codificado ({len(buf)} bytes JPEG)")
+
+    #os.remove(temp_path)
+
+    return {"frame": b64}
+
 
 @app.post("/upload_video")
-async def upload_video(file: UploadFile = File(...), corners: str = Form(...), display_width: float = Form(...), display_height: float = Form(...)):
+async def upload_video(file_name: str = Form(...), corners: str = Form(...), display_width: float = Form(...), display_height: float = Form(...)):
     # Verificar y crear la carpeta temp si no existe
     os.makedirs("temp", exist_ok=True)
 
     # Guardar el archivo subido en una ubicación temporal
-    temp_file_path = os.path.join("temp", file.filename)
-    with open(temp_file_path, "wb") as file_object:
-        file_object.write(await file.read())
+    temp_file_path = os.path.join("temp", file_name)
+    if not os.path.exists(temp_file_path):
+        return JSONResponse(400, {"error": "Vídeo temporal no encontrado"})
 
     try:
         src_corners = json.loads(corners)

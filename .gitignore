@@ -12,3 +12,5 @@ __pycache__/
 backend-node/node_modules/
 frontend/statpadel/node_modules/
 
+# Ignorar archivos subidos por el usuario
+backend-node/uploads/
