@@ -20,6 +20,11 @@ const MatchSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  status:     { 
+    type: String, 
+    enum: ['pendiente', 'analizando', 'analizado'], 
+    default: 'pendiente' 
+  },
   analysis: {
     type: Object,
     default: null

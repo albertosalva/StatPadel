@@ -2,6 +2,20 @@
 const Match = require('../models/Match')
 const mongoose = require('mongoose');
 const path = require('path');
+const fs = require('fs').promises;
+
+const { InfluxDB} = require('@influxdata/influxdb-client');
+const { DeleteAPI } = require('@influxdata/influxdb-client-apis');
+
+const influxUrl = process.env.INFLUX_URL;   
+const influxToken = process.env.INFLUX_TOKEN;
+const influxOrg = process.env.INFLUX_ORG;
+const influxBucket = process.env.INFLUX_BUCKET;
+
+// Crear cliente de InfluxDB
+const influxClient = new InfluxDB({ url: influxUrl, token: influxToken });
+// Crear instancia de DeleteAPI
+const deleteApi = new DeleteAPI(influxClient);
 
 // Esta de devolver todos los partidos de un usuario
 exports.getMyMatches = async (req, res) => {
@@ -18,17 +32,45 @@ exports.getMyMatches = async (req, res) => {
 // Eliminar un partido específico
 exports.deleteMatch = async (req, res) => {
     try {
-      const ownerId = req.user.id
-      const matchId = req.params.id
-  
-      const match = await Match.findOneAndDelete({ _id: matchId, owner: ownerId })
+      const ownerId = req.user.id;
+      const matchId = req.params.id;
+
+      // 1) Validar existencia y permiso
+      const match = await Match.findOne({ _id: matchId, owner: ownerId });
       if (!match) {
-        return res.status(404).json({ error: 'Partido no encontrado o no autorizado' })
+        return res.status(404).json({ error: 'Partido no encontrado o no autorizado' });
       }
-      return res.json({ message: 'Partido eliminado correctamente' })
+
+      // 2) Eliminar datos en InfluxDB
+      await deleteApi.postDelete({
+        org: influxOrg,
+        bucket: influxBucket,
+        body: {
+          start: '1970-01-01T00:00:00Z',
+          stop:  new Date().toISOString(),
+          predicate: `partido_id="${matchId}"`
+        }
+      });
+      console.log(`InfluxDB: datos borrados para partido_id=${matchId}`);
+
+      // 3) Borrar fichero de vídeo en disco (si existe)
+      if (match.filePath) {
+        try {
+          await fs.unlink(match.filePath);
+          console.log(`Fichero eliminado: ${match.filePath}`);
+        } catch (errFs) {
+          console.warn(`No se pudo eliminar fichero ${match.filePath}:`, errFs.message);
+        }
+      }
+
+      // 4) Eliminar documento de MongoDB
+      await Match.deleteOne({ _id: matchId, owner: ownerId });
+      console.log(`MongoDB: documento borrado para matchId=${matchId}`);
+
+      return res.json({ message: 'Partido y datos asociados eliminados correctamente' });
     } catch (err) {
-      console.error('Error en deleteMatch:', err)
-      return res.status(500).json({ error: err.message })
+      console.error('Error en deleteMatch:', err);
+      return res.status(500).json({ error: err.message });
     }
 }
 

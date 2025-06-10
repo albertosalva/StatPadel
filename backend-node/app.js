@@ -34,10 +34,6 @@ if (!fs.existsSync(tempDir)) {
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 
-// Uso de las rutas de corners
-const cornersRoutes = require('./routes/cornersRoutes');
-app.use('/api/corners', cornersRoutes);
-
 const videoRoutes = require('./routes/videoRoutes');
 app.use('/api/video', videoRoutes);
 
