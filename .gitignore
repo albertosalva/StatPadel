@@ -14,3 +14,11 @@ frontend/statpadel/node_modules/
 
 # Ignorar archivos subidos por el usuario
 backend-node/uploads/
+
+backend-python/temp/
+backend-node/temp/
+
+# 🚫 Ignorar vídeos y archivos grandes
+*.mp4
+*.avi
+*.mov
