@@ -7,6 +7,9 @@ import numpy as np
 import argparse
 from itertools import groupby
 from scipy.spatial import distance
+import json
+from bounce_detector import BounceDetector
+import os
 
 def read_video(path_video):
     """ Read video file    
@@ -28,6 +31,100 @@ def read_video(path_video):
             break
     cap.release()
     return frames, fps
+
+def read_video_streaming(path_video, chunk_size=450):
+    """
+    Lee el video en bloques (chunks) consecutivos, superponiendo los últimos 2 frames
+    del chunk anterior para no perder información en inferencias por ventanas temporales.
+
+    Args:
+        path_video (str): Ruta al video.
+        chunk_size (int): Número de frames por bloque.
+
+    Yields:
+        List[np.ndarray]: Lista de frames del bloque.
+        int: Índice inicial global del bloque en el video.
+    """
+    cap = cv2.VideoCapture(path_video)
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    buffer = []
+    last_two_frames = []
+    frame_index = 0
+    chunk_number = 1
+
+    print(f"[DEBUG] FPS del video: {fps}")
+    print(f"[DEBUG] Total de frames en el video: {total_frames}")
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        buffer.append(frame)
+        frame_index += 1
+
+        if len(buffer) == chunk_size:
+            if last_two_frames:
+                yield last_two_frames + buffer, frame_index - chunk_size - 2
+            else:
+                yield buffer, 0
+            print(f"[DEBUG] Enviado chunk {chunk_number} con {len(buffer)} frames + {len(last_two_frames)} de solape.")
+            chunk_number += 1
+            last_two_frames = buffer[-2:]
+            buffer = []
+
+    # Procesar último bloque si queda
+    if buffer:
+        if last_two_frames:
+            yield last_two_frames + buffer, frame_index - len(buffer) - 2
+        else:
+            yield buffer, frame_index - len(buffer)
+        print(f"[DEBUG] Enviado último chunk con {len(buffer)} frames + {len(last_two_frames)} de solape.")
+
+    cap.release()
+
+def save_serializable_track_line_by_line(ball_track, output_path):
+    with open(output_path, 'w') as f:
+        for frame_id, pos in enumerate(ball_track):
+            if pos is None or pos[0] is None or pos[1] is None:
+                json.dump(None, f)
+            else:
+                json.dump([float(pos[0]), float(pos[1])], f)
+            f.write('\n')  # una línea por frame
+    print(f"[INFO] Se guardaron {len(ball_track)} posiciones en '{output_path}' (una por línea)")
+
+
+def detectar_botes_en_track(ball_track, umbral_confianza=0.0):
+    """
+    Recibe el ball_track (lista de coordenadas o None).
+    Devuelve una lista de dicts con {"x", "y", "bote"}.
+    """
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    model_path = os.path.join(BASE_DIR, "models", "ctb_regr_bounce.cbm")
+
+    # Preparar coordenadas
+    x_coords = [pt[0] if pt else None for pt in ball_track]
+    y_coords = [pt[1] if pt else None for pt in ball_track]
+
+    # Instanciar detector y predecir
+    detector = BounceDetector(model_path)
+    predicciones = detector.predict(x_coords, y_coords, smooth=True)
+
+    # Set de frames con bote
+    frames_con_bote = set(f for f, p in predicciones if p >= umbral_confianza)
+
+    # Construir salida
+    resultado = []
+    for i in range(len(ball_track)):
+        if ball_track[i] is None:
+            resultado.append({"x": -1, "y": -1, "bote": 0})
+        else:
+            x, y = ball_track[i]
+            bote = 1 if i in frames_con_bote else 0
+            resultado.append({"x": x, "y": y, "bote": bote})
+
+    return resultado
 
 def infer_model(frames, model, device):
     """ Run pretrained model on a consecutive list of frames    

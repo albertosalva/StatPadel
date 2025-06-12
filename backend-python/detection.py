@@ -11,6 +11,7 @@ from ultralytics import YOLO
 import time
 import requests
 import time
+import gc
 
 #from server import wait_for_corners
 
@@ -21,7 +22,7 @@ if tracnet_dir not in sys.path:
 
 from model import BallTrackerNet
 from general import postprocess
-from infer_on_video import read_video, infer_model, remove_outliers, split_track, interpolation, write_track
+from infer_on_video import read_video, infer_model, remove_outliers, split_track, interpolation, detectar_botes_en_track, read_video_streaming, save_serializable_track_line_by_line
 
 
 def select_corners(frame):
@@ -64,10 +65,187 @@ def select_corners(frame):
     roi = np.array(corners, dtype=np.float32)
     return roi
 
+
+def video_analyzer(video_path, output_path, court_polygon, batch_size=8):
+    """
+    Analiza un video en streaming y devuelve un JSON con las posiciones de jugadores y bola.
+    Parámetros:
+      - video_path: ruta al vídeo de entrada
+      - output_path: ruta al vídeo anotado (no usado en esta versión)
+      - court_polygon: np.array con las esquinas de la pista
+      - batch_size: Nº de frames para procesar en cada batch de YOLO
+    """
+
+    # ── 1) Modelos ───────────────────────────────────────────────────────
+    yolo_model = YOLO(os.path.join("external", "models", "yolo11x.pt"))
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    ball_model = BallTrackerNet().to(device)
+    bm_path = os.path.join("external", "models", "model_best.pt")
+    ball_model.load_state_dict(torch.load(bm_path, map_location=device, weights_only=True))
+    ball_model.eval()
+
+    # ── 2) Traza de bola (TrackNet) ─────────────────────────────────────
+    """
+    frames_all, fps = read_video(video_path)
+    if not frames_all:
+        raise RuntimeError(f"No se pudo leer el vídeo: {video_path}")
+    ball_track, dists = infer_model(frames_all, ball_model, device)
+    ball_track = remove_outliers(ball_track, dists)
+    del frames_all  # liberamos memoria
+    """
+    print("[INFO] Iniciando análisis por bloques...")
+    ball_track = []
+    cap = cv2.VideoCapture(video_path)
+    cap.release()
+
+    generator = read_video_streaming(video_path, 500)
+    for block_id, (chunk_frames, start_idx) in enumerate(generator, 1):
+        print(f"[DEBUG] Procesando bloque {block_id} con {len(chunk_frames)} frames (desde el frame {start_idx})...")
+
+        ball_track_chunk, dists_chunk = infer_model(chunk_frames, ball_model, device)
+        ball_track_chunk = remove_outliers(ball_track_chunk, dists_chunk)
+
+        # Saltamos los 2 primeros que son None
+        if block_id == 1:
+            final_track = ball_track_chunk
+        else:
+            final_track = ball_track_chunk[2:]
+
+        ball_track.extend(final_track)
+
+        # Liberar memoria
+        del chunk_frames, final_track, ball_track_chunk, dists_chunk
+        gc.collect()
+
+    print("[INFO] Aplicando interpolación final...")
+    subtracks = split_track(ball_track)
+    for r in subtracks:
+        st = ball_track[r[0]:r[1]]
+        st = interpolation(st)
+        ball_track[r[0]:r[1]] = st
+
+    ball_track = detectar_botes_en_track(ball_track)
+
+    # ── 3) Preparar streaming ─────────────────────────────────────────────
+    cap = cv2.VideoCapture(video_path)
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
+    frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    scale_x = frame_w / 640
+    scale_y = frame_h / 360
+
+    tracked_players = {1: None, 2: None, 3: None, 4: None}
+    tracking_threshold = 50
+    court_corners = court_polygon.tolist()
+    results_json = {"fps": fps,"court_corners": court_corners, "frames": []}
+    idx_global = 0
+    batch_frames = []
+
+    # ── Helper: procesa un batch de cualquier tamaño ──────────────────────
+    def process_batch(frames_batch):
+        nonlocal tracked_players, idx_global, results_json
+        # Inferencia batch de YOLO
+        yolo_results = yolo_model(frames_batch, device=device)
+        print(f"[DEBUG] Procesando batch de {len(frames_batch)} frames (indices {idx_global} – {idx_global+len(frames_batch)-1})")
+        for i, res in enumerate(yolo_results):
+            dets = []
+            if hasattr(res, 'boxes'):
+                for box in res.boxes:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                    cls_id = int(box.cls)
+                    if yolo_model.names[cls_id] != "person":
+                        continue
+                    foot = ((x1 + x2)//2, y2)
+                    if cv2.pointPolygonTest(court_polygon, foot, False) < 0:
+                        continue
+                    dets.append(foot)
+
+            # ─ Tracking simple nearest-neighbor ─
+            new_tr = {}
+            assigned = set()
+            for pid, last in tracked_players.items():
+                if last is not None:
+                    # buscamos la detección más cercana
+                    best = min(
+                        ((j, sqrt((d[0]-last[0])**2 + (d[1]-last[1])**2)) 
+                         for j,d in enumerate(dets) if j not in assigned),
+                        key=lambda x: x[1], default=(None, None)
+                    )
+                    if best[0] is not None and best[1] < tracking_threshold:
+                        new_tr[pid] = dets[best[0]]
+                        assigned.add(best[0])
+                    else:
+                        new_tr[pid] = last
+                else:
+                    new_tr[pid] = None
+            # asignar detecciones sobrantes
+            for j,d in enumerate(dets):
+                if j in assigned:
+                    continue
+                for pid in tracked_players:
+                    if new_tr[pid] is None:
+                        new_tr[pid] = d
+                        assigned.add(j)
+                        break
+            tracked_players = new_tr
+
+            # ─ Bola escalada ─
+            #bt = ball_track[idx_global] if idx_global < len(ball_track) else (None, None)
+            #if bt[0] is not None:
+            #    ball_xy = (int(bt[0]*scale_x), int(bt[1]*scale_y))
+            #else:
+            #    ball_xy = None
+            if idx_global < len(ball_track):
+                ball = ball_track[idx_global]
+                if ball["x"] is not None and ball["y"] is not None:
+                    ball_xy = {
+                        "x": int(ball["x"] * scale_x),
+                        "y": int(ball["y"] * scale_y),
+                        "bote": int(ball["bote"])
+                    }
+                else:
+                    ball_xy = {"x": -1, "y": -1, "bote": 0}
+            else:
+                ball_xy = {"x": -1, "y": -1, "bote": 0}
+
+            # ─ JSON por frame ─
+            frame_data = {"frame": idx_global+1, "players": {}, "ball": {}}
+            for pid in sorted(tracked_players):
+                p = tracked_players[pid]
+                frame_data["players"][str(pid)] = {"x": p[0], "y": p[1]} if p else {"x": -1, "y": -1}
+            #if ball_xy:
+                #frame_data["ball"] = {"x": ball_xy[0], "y": ball_xy[1]}
+            #else:
+            #    frame_data["ball"] = {"x": -1, "y": -1}
+            frame_data["ball"] = ball_xy
+
+            results_json["frames"].append(frame_data)
+            #print(f"Datos añadidos al JSON: {frame_data}")
+            idx_global += 1
+
+        frames_batch.clear()  # vaciamos para el siguiente uso
+
+    # ── 4) Lectura en streaming + batching ─────────────────────────────────
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        batch_frames.append(frame)
+        if len(batch_frames) >= batch_size:
+            process_batch(batch_frames)
+
+    # ── Procesar los que queden al final ───────────────────────────────────
+    if batch_frames:
+        process_batch(batch_frames)
+
+    cap.release()
+
+    print(f"[DEBUG] Procesamiento finalizado. Total frames procesados: {len(results_json['frames'])} y el resultado del JSON es {results_json}")
+    return results_json
     
 
 
-def video_analyzer(video_path, output_path, court_polygon):
+def video_analyzer2(video_path, output_path, court_polygon):
     """
     Analiza un video en la ruta especificada y guarda un video
     con las detecciones en la ruta de salida.

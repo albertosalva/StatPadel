@@ -105,7 +105,7 @@ exports.uploadVideo = async (req, res) => {
       status: 'pendiente'
     })
     const matchId = matchDoc._id.toString();
-    console.log('aaaaa Match guardado en Mongo con _id =', matchId);
+    console.log('Match guardado en Mongo con _id =', matchId);
 
     console.log("Procesando vídeo temporal:", fileName);
     //const filePath = req.file.path;
@@ -146,9 +146,9 @@ exports.uploadVideo = async (req, res) => {
     });
 
     // 4) Guardas el análisis en InfluxDB
-    const analysis = response.data;
+    const data = response.data;
     console.log("Guardando datos de análisis en InfluxDB...");
-    const points = await saveAnalysisToInflux(analysis, matchId);
+    const points = await saveAnalysisToInflux(data, matchId);
     console.log("Datos guardados en InfluxDB. Puntos escritos:", points);
 
     await waitForInfluxData(matchId, points);
@@ -156,26 +156,37 @@ exports.uploadVideo = async (req, res) => {
     // Obtener estadísticas del partido
     console.log("Solicitando estadísticas a FastAPI...");
     //const statsResponse = await axios.get(`${FLASK_FastAPI}/match_stats/${matchId}`);
-    const stats = await computeMatchStats(matchId);
+
+
+
+    const distances = await getAllDistances(matchId);
+    const avgSpeeds = await getAllSpeeds(matchId);
+    const maxSpeeds = await getMaxSpeed(matchId);
+
+
+
     console.log("Estadísticas recibidas correctamente.");
 
-    //const statistics = statsResponse.data;
-    // 💬 Mostrar las estadísticas en consola
-    console.log("Estadísticas a guardar en MongoDB:");
-    console.log(JSON.stringify(stats, null, 2));  // Pretty print
+
 
     // Guardar estadísticas en MongoDB y cambiar el estado del partido
     console.log("Guardando estadísticas en el documento Match de MongoDB...");
-    //matchDoc.analysis = statistics;
-    matchDoc.analysis = stats;
-    matchDoc.status = 'analizado';
+
+    // 2) Empaqueta todo en un solo objeto
+    const analysis = {
+      distances,
+      avgSpeeds,
+      maxSpeeds,
+    };
+    matchDoc.analysis = analysis;
+    matchDoc.status   = 'analizado';
     await matchDoc.save();
-    console.log("Estadísticas guardadas en MongoDB.");
+    console.log("Estadísticas guardadas en MongoDB:", analysis);
 
     
 
     // 5) Devuelves matchId + análisis al cliente
-    return res.json({ matchId, analysis });
+    return res.json({ matchId, data });
     
     // Una vez obtenida la respuesta, eliminamos el archivo temporal
     //fs.unlink(filePath, (err) => {
@@ -199,58 +210,62 @@ exports.uploadVideo = async (req, res) => {
 };
 
 
-async function saveAnalysisToInflux(transformedJson, matchId) {
+async function saveAnalysisToInflux(data, matchId) {
   const client   = new InfluxDB({ url: influxUrl, token: influxToken });
   const writeApi = client.getWriteApi(influxOrg, influxBucket, 'ms');
 
-  console.log(`🔍 [Influx] Iniciando escritura para match ${matchId}`);
-  const frameIntervalMs = 40;
-  const startTime = Date.now();
+  const fps = data.fps;
+  const frameIntervalMs = 1000 / fps;
+  const startTime = Date.now() - 60 * 60 * 1000
   let totalPoints = 0;
 
-  try {
-    for (let i = 0; i < transformedJson.frames.length; i++) {
-      const frame     = transformedJson.frames[i];
-      const timestamp = new Date(startTime + i * frameIntervalMs);
-      console.log(`  ↳ Frame ${i + 1}/${transformedJson.frames.length} @ ${timestamp.toISOString()}`);
+  console.log(`🔍 [Influx] Iniciando escritura para match ${matchId} (FPS: ${fps}, Intervalo: ${frameIntervalMs.toFixed(2)} ms)`);
 
-      // Jugadores
+  try {
+    for (let i = 0; i < data.frames.length; i++) {
+      const frame     = data.frames[i];
+      const timestamp = new Date(startTime + i * frameIntervalMs);
+      //console.log(`  ↳ Frame ${i + 1}/${data.frames.length} @ ${timestamp.toISOString()}`);
+
+      // ───── GUARDAR JUGADORES ─────────────────
       let playersWritten = 0;
-      for (const [playerId, coords] of Object.entries(frame.players)) {
+      for (const [position, coords] of Object.entries(frame.players)) {
         if (coords.x !== -1 && coords.y !== -1) {
           writeApi.writePoint(
             new Point('partidos')
-              .tag('partido_id', matchId)
+              .tag('partido_id', matchId.toString())
               .tag('entity', 'player')
-              .tag('player_id', playerId)
+              .tag('player_id', position)
               .floatField('x', coords.x)
               .floatField('y', coords.y)
               .timestamp(timestamp)
           );
           playersWritten++;
-          totalPoints++;
+          totalPoints += 2;
         }
       }
-      console.log(`     • Jugadores escritos: ${playersWritten}`);
+      //console.log(`     • Jugadores escritos: ${playersWritten}`);
 
-      // Bola
-      let ballWritten = 0;
+      // ───── GUARDAR BOLA ───────────────────────
       const ball = frame.ball;
       if (ball.x !== -1 && ball.y !== -1) {
         writeApi.writePoint(
           new Point('partidos')
-            .tag('partido_id', matchId)
+            .tag('partido_id', matchId.toString())
             .tag('entity', 'ball')
             .floatField('x', ball.x)
             .floatField('y', ball.y)
+            .intField('bote', ball.bote || 0)
             .timestamp(timestamp)
         );
-        ballWritten++;
-        totalPoints++;
+        //console.log(`     • Bola escrita: ✅`);
+        totalPoints += 3;
+      } else {
+        //console.log(`     • Bola escrita: ❌ (no hay datos)`);
       }
-      console.log(`     • Bola escrita: ${ballWritten}`);
     }
 
+    // ───── FLUSH Y CIERRE ────────────────────────
     console.log(`🔄 Forzando flush sincrónico...`);
     await writeApi.flush();
     console.log(`✅ Flush completado`);
@@ -260,32 +275,36 @@ async function saveAnalysisToInflux(transformedJson, matchId) {
     console.log(`✅ Todos los puntos de match ${matchId} guardados correctamente en InfluxDB.`);
 
     return totalPoints;
+
   } catch (err) {
     console.error(`❌ Error al escribir en InfluxDB para match ${matchId}:`, err);
+    return 0;
   }
 }
+
 
 async function waitForInfluxData(matchId, expectedPoints, maxRetries = 1000, delay = 500) {
   console.log(`⌛ Esperando datos para ${matchId} (${expectedPoints} puntos)`);
   
   for (let i = 0; i < maxRetries; i++) {
     const flux = `from(bucket:"${influxBucket}")
-      |> range(start: -5m)
+      |> range(start: -2h)
       |> filter(fn: (r) => 
           r._measurement == "partidos" and 
           r.partido_id == "${matchId}"
       )
-      |> group(columns: ["_field"])
-      |> count()
-      |> sum()`;
+      |> count()`;
     
     try {
       const result = await queryApi.collectRows(flux);
-      const totalRecords = result.length > 0 ? result[0]._value : 0;
-      
-      console.log(`↩️ Intento ${i+1}/${maxRetries}: ${totalRecords} registros`);
-      
-      // Verificación más precisa
+      let totalRecords = 0;
+
+      for (const row of result) {
+        totalRecords += row._value;
+      }
+
+      console.log(`↩️ Intento ${i + 1}/${maxRetries}: ${totalRecords} registros`);
+
       if (totalRecords >= expectedPoints) {
         console.log(`✅ Datos disponibles (${totalRecords} registros)`);
         return;
@@ -296,126 +315,291 @@ async function waitForInfluxData(matchId, expectedPoints, maxRetries = 1000, del
     
     await new Promise(resolve => setTimeout(resolve, delay));
   }
-  throw new Error(`Timeout: Solo se encontraron ${totalRecords}/${expectedPoints*2} registros`);
+  throw new Error(`Timeout: Solo se encontraron ${totalRecords}/${expectedPoints} registros`);
 }
 
 
-async function computeMatchStats(matchId) {
-  // Consulta para jugadores
+async function getAllDistances(matchId) {
+  const queryApi = new InfluxDB({ url: influxUrl, token: influxToken }).getQueryApi(influxOrg);
+
   const fluxPlayers = `
-    from(bucket:"${influxBucket}")
+    import "math"
+
+    from(bucket: "${influxBucket}")
       |> range(start: 0)
       |> filter(fn: (r) =>
           r._measurement == "partidos" and
-          r.partido_id     == "${matchId}" and
-          r.entity         == "player" and
-          (r._field == "x" or r._field == "y")
+          r.partido_id   == "${matchId}" and
+          r.entity       == "player"
       )
+      |> filter(fn: (r) => r._field == "x" or r._field == "y")
       |> pivot(
-          rowKey:    ["_time","player_id"],
-          columnKey: ["_field"],
+          rowKey:      ["_time"],
+          columnKey:   ["_field"],
           valueColumn: "_value"
-      )
-      |> keep(columns: ["_time","player_id","x","y"])
+        )
       |> sort(columns: ["_time"])
-    `;
-  const playerRows = await queryApi.collectRows(fluxPlayers);
-
-  // Consulta para la bola
+      |> difference(columns: ["x", "y"])
+      |> map(fn: (r) => ({ player_id: r.player_id, _value: math.hypot(p: r.x, q: r.y) }))
+      |> group(columns: ["player_id"])
+      |> sum(column: "_value")
+      |> keep(columns: ["player_id", "_value"])
+    `
   const fluxBall = `
-    from(bucket:"${influxBucket}")
+    import "math"
+
+    from(bucket: "${influxBucket}")
       |> range(start: 0)
       |> filter(fn: (r) =>
           r._measurement == "partidos" and
-          r.partido_id     == "${matchId}" and
-          r.entity         == "ball" and
-          (r._field == "x" or r._field == "y")
+          r.partido_id   == "${matchId}" and
+          r.entity       == "ball"
       )
+      |> filter(fn: (r) => r._field == "x" or r._field == "y")
       |> pivot(
-          rowKey:    ["_time"],
-          columnKey: ["_field"],
+          rowKey:      ["_time"],
+          columnKey:   ["_field"],
           valueColumn: "_value"
-      )
-      |> keep(columns: ["_time","x","y"])
+        )
       |> sort(columns: ["_time"])
-    `;
-  const ballRows = await queryApi.collectRows(fluxBall);
+      |> difference(columns: ["x", "y"])
+      |> map(fn: (r) => ({ _value: math.hypot(p: r.x, q: r.y) }))
+      |> sum(column: "_value")
+      |> keep(columns: ["_value"])
+    `
 
-  // si no hay datos
-  if (!playerRows.length && !ballRows.length) {
-    throw new Error(`No hay datos para matchId=${matchId}`);
+  const playerRows = await queryApi.collectRows(fluxPlayers)
+  const distances = {}
+  for (const row of playerRows) {
+    distances[row.player_id] = parseFloat(row._value)
   }
 
-  // Helper de estadísticas de trayectoria
-  function trajectoryStats(pts) {
-    let totalDist = 0, totalTime = 0, maxSpeed = 0;
-    for (let i = 1; i < pts.length; i++) {
-      const dt   = (pts[i].time - pts[i-1].time) / 1000;
-      if (dt <= 0) continue;
-      const dx   = pts[i].x - pts[i-1].x;
-      const dy   = pts[i].y - pts[i-1].y;
-      const dist = Math.hypot(dx, dy);
-      const sp   = dist / dt;
-      totalDist += dist;
-      totalTime += dt;
-      if (sp > maxSpeed) maxSpeed = sp;
-    }
-    return {
-      total_distance:  parseFloat(totalDist.toFixed(3)),
-      average_speed:   parseFloat((totalTime>0 ? totalDist/totalTime : 0).toFixed(3)),
-      max_speed:       parseFloat(maxSpeed.toFixed(3)),
-      n_points:        pts.length
-    };
+  const ballRows = await queryApi.collectRows(fluxBall)
+  let distancesBall
+  if (ballRows.length > 0) {
+    distancesBall = parseFloat(ballRows[0]._value)
+  }
+  else {
+    distancesBall = 0.0 
   }
 
-  // Procesar jugadores
-  const statsPlayers = {};
-  const grouped = playerRows.reduce((acc, r) => {
-    const pid = r.player_id;
-    acc[pid] = acc[pid] || [];
-    acc[pid].push({
-      time: new Date(r._time),
-      x:    r.x,
-      y:    r.y
-    });
-    return acc;
-  }, {});
-  for (const [pid, pts] of Object.entries(grouped)) {
-    pts.sort((a,b) => a.time - b.time);
-    statsPlayers[pid] = trajectoryStats(pts);
+  const result = {
+    players: distances,
+    ball:    distancesBall
   }
 
-  // Procesar bola
-  const ballPts = ballRows.map(r => ({
-    time: new Date(r._time),
-    x:    r.x,
-    y:    r.y
-  })).sort((a,b) => a.time - b.time);
-  const statsBall = ballPts.length
-    ? trajectoryStats(ballPts)
-    : { total_distance:0, average_speed:0, max_speed:0, n_points:0 };
+  //console.log(`Distancias recorridas en el partido ${matchId}:`, distances)
+  
+  return result
+  
+}
 
-  // Calcular start/end/duration
-  const allTimes = [
-    ...playerRows.map(r => new Date(r._time).getTime()),
-    ...ballRows  .map(r => new Date(r._time).getTime())
-  ].sort((a,b) => a - b);
-  const t0 = new Date(allTimes[0]);
-  const t1 = new Date(allTimes[allTimes.length - 1]);
-  const duration_s = parseFloat(((t1 - t0)/1000).toFixed(3));
 
-  // Formateo tipo "YYYY-MM-DD HH:mm:ss.SSS+00:00"
-  const fmt = dt => dt.toISOString()
-    .replace('T',' ')
-    .replace('Z','+00:00');
+async function getAllSpeeds(matchId) {
+  const queryApi = new InfluxDB({ url: influxUrl, token: influxToken })
+    .getQueryApi(influxOrg);
 
-  // Devuelve SOLO el objeto analysis
-  return {
-    match_id:   matchId,
-    start_time: fmt(t0),
-    end_time:   fmt(t1),
-    duration_s,
-    players:    statsPlayers,
-    ball:       statsBall
-  };
+  const fluxPlayers = `
+    import "math"
+
+    data = from(bucket: "${influxBucket}")
+      |> range(start: 0)
+      |> filter(fn: (r) =>
+          r._measurement == "partidos" and
+          r.partido_id   == "${matchId}" and
+          r.entity       == "player"
+      )
+      |> filter(fn: (r) => r._field == "x" or r._field == "y")
+      |> pivot(
+          rowKey:      ["_time"],
+          columnKey:   ["_field"],
+          valueColumn: "_value"
+        )
+      |> sort(columns: ["_time"])
+      |> group(columns: ["player_id"])
+
+    speedPerPlayer = data
+      |> reduce(
+          identity: { index: 0, prevTime: uint(v:0), prevX:0.0, prevY:0.0, totalDistance:0.0, totalTime:0.0 },
+          fn: (r, accumulator) => {
+            currentTime = uint(v: r._time)
+            distanceDelta = if accumulator.index == 0 then 0.0 else math.hypot(p: r.x - accumulator.prevX, q: r.y - accumulator.prevY)
+            timeDelta = if accumulator.index == 0 then 0.0 else float(v: currentTime - accumulator.prevTime) / 1000000000.0
+
+            return {
+              index: accumulator.index + 1,
+              prevTime: currentTime,
+              prevX: r.x,
+              prevY: r.y,
+              totalDistance: accumulator.totalDistance + distanceDelta,
+              totalTime: accumulator.totalTime + timeDelta
+            }
+          }
+        )
+      |> map(fn: (r) => ({ player_id: r.player_id, _value: if r.totalTime > 0.0 then r.totalDistance / r.totalTime else 0.0 }))
+      |> keep(columns: ["player_id", "_value"])
+      |> yield(name: "speedPerPlayer")
+  `;
+
+  const fluxBall = `
+  import "math"
+
+  data = from(bucket: "${influxBucket}")
+    |> range(start: 0)
+    |> filter(fn: (r) =>
+        r._measurement == "partidos" and
+        r.partido_id   == "${matchId}" and
+        r.entity       == "ball"
+    )
+    |> filter(fn: (r) => r._field == "x" or r._field == "y")
+    |> pivot(
+        rowKey:      ["_time"],
+        columnKey:   ["_field"],
+        valueColumn: "_value"
+      )
+    |> sort(columns: ["_time"])
+
+  speedBall = data
+    |> reduce(
+        identity: { index: 0, prevTime: uint(v:0), prevX:0.0, prevY:0.0, totalDistance:0.0, totalTime:0.0 },
+        fn: (r, accumulator) => {
+          currentTime = uint(v: r._time)
+          distanceDelta = if accumulator.index == 0 then 0.0 else math.hypot(p: r.x - accumulator.prevX, q: r.y - accumulator.prevY)
+          timeDelta = if accumulator.index == 0 then 0.0 else float(v: currentTime - accumulator.prevTime) / 1000000000.0
+
+          return {
+            index: accumulator.index + 1,
+            prevTime: currentTime,
+            prevX: r.x,
+            prevY: r.y,
+            totalDistance: accumulator.totalDistance + distanceDelta,
+            totalTime: accumulator.totalTime + timeDelta
+          }
+        }
+      )
+    |> map(fn: (r) => ({ _value: if r.totalTime > 0.0 then r.totalDistance / r.totalTime else 0.0 }))
+    |> keep(columns: ["_value"])
+    |> yield(name: "speedBall")
+  `;
+
+  const playerRows = await queryApi.collectRows(fluxPlayers);
+  const speeds = {};
+  for (const row of playerRows) {
+    speeds[row.player_id] = parseFloat(row._value);
+  }
+
+  const ballRows = await queryApi.collectRows(fluxBall)
+  const ballSpeed = ballRows.length
+    ? parseFloat(ballRows[0]._value)
+    : 0
+
+  const result = {
+    players: speeds,
+    ball:    ballSpeed
+  }
+
+  //console.log(`Velocidades media ${matchId}:`, result)
+  return result;
+}
+
+async function getMaxSpeed(matchId) {
+  const queryApi = new InfluxDB({ url: influxUrl, token: influxToken })
+    .getQueryApi(influxOrg)
+
+
+  const fluxPlayersMax = `
+    import "math"
+
+    data = from(bucket: "${influxBucket}")
+      |> range(start: 0)
+      |> filter(fn: (r) =>
+          r._measurement == "partidos" and
+          r.partido_id   == "${matchId}" and
+          r.entity       == "player"
+      )
+      |> filter(fn: (r) => r._field == "x" or r._field == "y")
+      |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+      |> group(columns: ["player_id"])
+      |> sort(columns: ["_time"])
+
+    speed20ms = data
+      |> difference(columns: ["x", "y"])
+      |> elapsed(unit: 1ms)
+      |> map(fn: (r) => ({
+           _time:     r._time,
+           player_id: r.player_id,
+           v:         if r.elapsed > 0.0 then math.hypot(p: r.x, q: r.y) / (float(v: r.elapsed) / 1000.0) else 0.0
+      }))
+      |> map(fn: (r) => ({
+           _time:     r._time,
+           player_id: r.player_id,
+           _value:    if r.v <= 9.0 then r.v else 9.0
+      }))
+
+    avg1s = speed20ms
+      |> window(every: 1s)
+      |> mean(column: "_value")
+      |> keep(columns: ["_start", "player_id", "_value"])
+
+    maxAvg1s = avg1s
+      |> group(columns: ["player_id"])
+      |> max(column: "_value")
+      |> keep(columns: ["player_id", "_value"])
+      |> yield(name: "max_avg_1s_speed_players")
+  `
+
+  const fluxBallMax = `
+    import "math"
+
+    data = from(bucket: "${influxBucket}")
+      |> range(start: 0)
+      |> filter(fn: (r) =>
+          r._measurement == "partidos" and
+          r.partido_id   == "${matchId}" and
+          r.entity       == "ball"
+      )
+      |> filter(fn: (r) => r._field == "x" or r._field == "y")
+      |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+      |> sort(columns: ["_time"])
+
+    speed20ms = data
+      |> difference(columns: ["x", "y"])
+      |> elapsed(unit: 1ms)
+      |> map(fn: (r) => ({
+           _time: r._time,
+           v:      if r.elapsed > 0.0 then math.hypot(p: r.x, q: r.y) / (float(v: r.elapsed) / 1000.0) else 0.0
+      }))
+      |> map(fn: (r) => ({
+           _time:  r._time,
+           _value: if r.v <= 35.0 then r.v else 35.0
+      }))
+
+    avg1s = speed20ms
+      |> window(every: 1s)
+      |> mean(column: "_value")
+      |> keep(columns: ["_start", "_value"])
+
+    maxAvg1s = avg1s
+      |> max(column: "_value")
+      |> keep(columns: ["_value"])
+      |> yield(name: "max_avg_1s_speed_ball")
+  `
+  const playerRows = await queryApi.collectRows(fluxPlayersMax)
+  const maxSpeedsPlayers = {}
+  for (const row of playerRows) {
+    maxSpeedsPlayers[row.player_id] = parseFloat(row._value)
+  }
+
+  const ballRows = await queryApi.collectRows(fluxBallMax)
+  const maxSpeedBall = ballRows.length
+    ? parseFloat(ballRows[0]._value)
+    : 0.0
+
+  const result = {
+    players: maxSpeedsPlayers,
+    ball:    maxSpeedBall
+  }
+
+  //console.log(`Velocidades máximas medias por segundo en el partido ${matchId}:`, result)
+  return result
 }

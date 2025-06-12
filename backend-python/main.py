@@ -7,13 +7,14 @@ import json
 import base64
 import cv2
 import numpy as np
+import time
 
 from fastapi import FastAPI, File, UploadFile, Form, Body, HTTPException
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 
 from detection import video_analyzer
-from homography import transform_json_homography
+from homography import transform_json_homography, rename_players_by_position
 from homography import plot_transformed_trajectories
 from exporter import export_to_json
 from match_statistics import compute_match_statistics
@@ -78,6 +79,9 @@ async def extract_frame_file(file: UploadFile = File(...)):
 async def upload_video(file_name: str = Form(...), corners: str = Form(...), display_width: float = Form(...), display_height: float = Form(...)):
     # Verificar y crear la carpeta temp si no existe
     os.makedirs("temp", exist_ok=True)
+    start_time = time.time()
+
+    print(f"[upload_video] Recibido archivo: {file_name}, corners: {corners}, display_width: {display_width}, display_height: {display_height}")
 
     # Guardar el archivo subido en una ubicación temporal
     temp_file_path = os.path.join("temp", file_name)
@@ -112,6 +116,7 @@ async def upload_video(file_name: str = Form(...), corners: str = Form(...), dis
     # Definir las rutas de salida para el video procesado y el JSON de resultados
     output_video_path = "videos_results/result_videopadel.mp4"
     json_filename = "detecciones.json"
+    json_filename2 = "detecciones2.json"
     bucket="Partidos"
 
     # Ejecutar el analisis del video
@@ -120,6 +125,8 @@ async def upload_video(file_name: str = Form(...), corners: str = Form(...), dis
         # Si falla el procesamiento, se retorna un error
         return JSONResponse(status_code=400, content={"error": "El análisis del video falló."})
     
+    #print("RESULTADO DEL ANALISIS: ", results)
+    
     # Exportar los resultados a un archivo JSON
     # export_to_json(results, json_filename)
 
@@ -127,18 +134,22 @@ async def upload_video(file_name: str = Form(...), corners: str = Form(...), dis
 
     result_homography = transform_json_homography(results, json_filename)
 
+    result_homography = rename_players_by_position(json_filename, json_filename2)
+
     #plot_transformed_trajectories(json_filename)
 
+    end_time = time.time()
+    print(f"\n✅ Análisis completo en {end_time - start_time:.2f} segundos")
 
     # Eliminar el archivo temporal
-    os.remove(temp_file_path)
+    #os.remove(temp_file_path)
 
-    print("Resultados exportados a", result_homography)
+    #print("Resultados exportados a", result_homography)
 
     # Retornar los resultados en formato JSON
     return result_homography
 
-
+"""
 @app.get("/match_stats/{match_id}")
 def get_match_stats(match_id: str):
     stats = compute_match_statistics(
@@ -150,7 +161,7 @@ def get_match_stats(match_id: str):
     )
     print("Estadísticas del partido:", stats)
     return stats
-
+"""
 
 if __name__ == '__main__':
     uvicorn.run(app, host="0.0.0.0", port=8000)
