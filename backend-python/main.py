@@ -142,7 +142,7 @@ async def upload_video(file_name: str = Form(...), corners: str = Form(...), dis
     print(f"\n✅ Análisis completo en {end_time - start_time:.2f} segundos")
 
     # Eliminar el archivo temporal
-    #os.remove(temp_file_path)
+    os.remove(temp_file_path)
 
     #print("Resultados exportados a", result_homography)
 

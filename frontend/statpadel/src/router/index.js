@@ -20,6 +20,13 @@ const routes = [
   { path: '/gestion-videos', name: 'GestionVideos', component: () => import('../views/GestionVideos.vue'), meta: { requiresAuth: true } },
   { path: '/configuracion-perfil', name: 'ConfiguracionPerfil', component: () => import('../views/ConfiguracionPerfil.vue'), meta: { requiresAuth: true } },
   { path: '/ayuda', name: 'Ayuda', component: () => import('../views/Ayuda.vue'), meta: { requiresAuth: false } },
+  {
+    path: '/heatmap/:id',
+    name: 'HeatMap',
+    component: () => import('../components/HeatMap.vue'),
+    meta: { requiresAuth: true },
+    props: true
+  }
 ];
 
 const router = createRouter({

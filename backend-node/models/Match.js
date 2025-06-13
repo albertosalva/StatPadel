@@ -28,6 +28,10 @@ const MatchSchema = new mongoose.Schema({
   analysis: {
     type: Object,
     default: null
+  }, 
+  heatmap:{
+    type: Object,
+    default: null
   }
 });
 

@@ -113,6 +113,7 @@ exports.getMatchById = async (req, res) => {
     const userId = match.owner.toString()
     match.videoPath = `/videos/${userId}/${filename}`
 
+    console.log('Match encontrado:', match)
     return res.json(match);
   } catch (err) {
     console.error('Error en getMatchById:', err)
