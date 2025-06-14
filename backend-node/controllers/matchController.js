@@ -1,5 +1,6 @@
 // controllers/matchController.js
 const Match = require('../models/Match')
+const Usuario = require('../models/Users');
 const mongoose = require('mongoose');
 const path = require('path');
 const fs = require('fs').promises;
@@ -36,9 +37,9 @@ exports.deleteMatch = async (req, res) => {
       const matchId = req.params.id;
 
       // 1) Validar existencia y permiso
-      const match = await Match.findOne({ _id: matchId, owner: ownerId });
+      const match = await Match.findOne({ _id: matchId, owner: ownerId })
       if (!match) {
-        return res.status(404).json({ error: 'Partido no encontrado o no autorizado' });
+        return res.status(404).json({ error: 'Partido no encontrado o no autorizado' })
       }
 
       // 2) Eliminar datos en InfluxDB
@@ -51,26 +52,26 @@ exports.deleteMatch = async (req, res) => {
           predicate: `partido_id="${matchId}"`
         }
       });
-      console.log(`InfluxDB: datos borrados para partido_id=${matchId}`);
+      console.log(`InfluxDB: datos borrados para partido_id=${matchId}`)
 
       // 3) Borrar fichero de vídeo en disco (si existe)
       if (match.filePath) {
         try {
-          await fs.unlink(match.filePath);
-          console.log(`Fichero eliminado: ${match.filePath}`);
+          await fs.unlink(match.filePath)
+          console.log(`Fichero eliminado: ${match.filePath}`)
         } catch (errFs) {
-          console.warn(`No se pudo eliminar fichero ${match.filePath}:`, errFs.message);
+          console.warn(`No se pudo eliminar fichero ${match.filePath}:`, errFs.message)
         }
       }
 
       // 4) Eliminar documento de MongoDB
-      await Match.deleteOne({ _id: matchId, owner: ownerId });
-      console.log(`MongoDB: documento borrado para matchId=${matchId}`);
+      await Match.deleteOne({ _id: matchId, owner: ownerId })
+      console.log(`MongoDB: documento borrado para matchId=${matchId}`)
 
-      return res.json({ message: 'Partido y datos asociados eliminados correctamente' });
+      return res.json({ message: 'Partido y datos asociados eliminados correctamente' })
     } catch (err) {
-      console.error('Error en deleteMatch:', err);
-      return res.status(500).json({ error: err.message });
+      console.error('Error en deleteMatch:', err)
+      return res.status(500).json({ error: err.message })
     }
 }
 
@@ -102,21 +103,44 @@ exports.getMatchById = async (req, res) => {
   const { id } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ error: "ID de partido inválido" });
+    return res.status(400).json({ error: "ID de partido inválido" })
   }
 
   try {
     const match = await Match.findById(id).lean()
-    if (!match) return res.status(404).json({ error: "Partido no encontrado" });
+    if (!match) return res.status(404).json({ error: "Partido no encontrado" })
 
     const filename = path.basename(match.filePath)
     const userId = match.owner.toString()
     match.videoPath = `/videos/${userId}/${filename}`
 
+    //Obtener nombres de usuarios en playerPositions
+    const positions = match.playerPositions || {};
+    const userIds = Object.values(positions).filter(Boolean);
+    const users = await Usuario.find({ _id: { $in: userIds } }).lean();
+    const userMap = Object.fromEntries(users.map(u => [u._id.toString(), u.username]));
+
+    // Crear nuevo objeto con nombres
+    const resolvedPositions = {};
+    for (const [pos, uid] of Object.entries(positions)) {
+      if (uid) {
+        resolvedPositions[pos] = {
+          userId: uid.toString(),
+          name: userMap[uid.toString()] || 'Usuario desconocido'
+        };
+      } else {
+        resolvedPositions[pos] = null;
+      }
+    }
+
+    // Reemplazar playerPositions por versión enriquecida
+    match.playerPositions = resolvedPositions;
+
     console.log('Match encontrado:', match)
     return res.json(match);
   } catch (err) {
     console.error('Error en getMatchById:', err)
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message })
   }
-};
+}
+

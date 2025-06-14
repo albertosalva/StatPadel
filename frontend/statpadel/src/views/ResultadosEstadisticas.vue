@@ -20,7 +20,7 @@
       <div v-else>
         <el-row :gutter="20">
           <!-- Vídeo -->
-          <el-col :xs="24" :md="12">
+          <el-col :xs="24" :md="8">
             <el-card shadow="hover">
               <template #header>
                 <span>Vídeo del partido</span>
@@ -34,15 +34,7 @@
             </el-card>
           </el-col>
 
-          <!-- Bola -->
-          <el-col :xs="24" :md="6">
-            <el-card shadow="hover">
-              <template #header>
-                <span>Estadísticas de la Bola</span>
-              </template>
-              <BallStatsChart v-if="match?.analysis?.ball" :stats="match.analysis.ball" />
-            </el-card>
-          </el-col>
+
 
           <!-- Mapa de calor -->
           <el-col :xs="24" :md="6">
@@ -50,10 +42,20 @@
               <template #header>
                 <span>Mapa de calor</span>
               </template>
-              
+              <HeatMap :match-id="matchId"/>
             </el-card>
           </el-col>
         </el-row>
+
+          <!-- Bola -->
+          <el-col :xs="24" :md="2">
+            <el-card shadow="hover">
+              <template #header>
+                <span>Estadísticas de la Bola</span>
+              </template>
+              <BallStatsChart v-if="match?.analysis?.ball" :stats="match.analysis.ball" />
+            </el-card>
+          </el-col>        
 
         <!-- Jugadores -->
         <el-row :gutter="20" style="margin-top: 20px">
@@ -81,6 +83,7 @@ import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
 import BallStatsChart from '@/components/BolaEstadisticas.vue'
 import JugadoresEstadisticas from '@/components/JugadoresEstadisticas.vue'
+import HeatMap from '@/components/HeatMap.vue'
 
 
 import { onMounted, ref, computed} from 'vue'

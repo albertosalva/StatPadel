@@ -29,10 +29,19 @@ const MatchSchema = new mongoose.Schema({
     type: Object,
     default: null
   }, 
-  heatmap:{
+  heatmap: {
     type: Object,
-    default: null
+    default: {}
+  },
+  playerPositions: {
+    type: Map,
+    of: {
+      type: Schema.Types.ObjectId,
+      ref: 'Users',
+    },
+    default: {}
   }
-});
+}
+);
 
 module.exports = mongoose.model('Match', MatchSchema);

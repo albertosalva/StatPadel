@@ -338,7 +338,7 @@ async function getMaxSpeed(matchId) {
     : 0.0
 
   const result = {
-    players: maxSpeedsPlayers,
+    ...maxSpeedsPlayers,
     ball:    maxSpeedBall
   }
 
@@ -362,10 +362,11 @@ async function getHeatmapData(matchId) {
     const cell_size = 0.25;
     const width_meters = 10.0;
     const height_meters = 20.0;
-    const num_cols = Math.floor(width_meters / cell_size);
-    const num_rows = Math.floor(height_meters / cell_size);
+    //const num_cols = Math.floor(width_meters / cell_size);
+    //const num_rows = Math.floor(height_meters / cell_size);
 
   const rows = await queryApi.collectRows(fluxQuery)
+  console.log(rows);
   const heatmap = {}
 
   for (const row of rows) {
@@ -384,14 +385,24 @@ async function getHeatmapData(matchId) {
     const rowIdx = Math.floor(y / cell_size)
 
     if (!heatmap[player]) {
-      // Inicializar matriz vacía (array de arrays)
-      heatmap[player] = Array.from({ length: num_rows }, () => Array(num_cols).fill(0))
-    }
+		heatmap[player] = []
+	}
 
-    heatmap[player][rowIdx][col]++
+	const existing = heatmap[player].find(e => e.row === rowIdx && e.col === col)
+	if (existing) {
+		existing.value++
+	} else {
+		heatmap[player].push({ row: rowIdx, col: col, value: 1 })
+	}
+
   }
 
-  return heatmap;
+  const result = {
+	cell_size: cell_size,
+	heatmap: heatmap
+  }
+
+  return result;
 }
 
 

@@ -96,7 +96,7 @@ def video_analyzer(video_path, output_path, court_polygon, batch_size=8):
     print("[INFO] Iniciando análisis por bloques...")
     ball_track = []
     cap = cv2.VideoCapture(video_path)
-    cap.release()
+    #cap.release()
 
     generator = read_video_streaming(video_path, 500)
     for block_id, (chunk_frames, start_idx) in enumerate(generator, 1):
@@ -140,6 +140,8 @@ def video_analyzer(video_path, output_path, court_polygon, batch_size=8):
     results_json = {"fps": fps,"court_corners": court_corners, "frames": []}
     idx_global = 0
     batch_frames = []
+
+    annotated_frames = []
 
     # ── Helper: procesa un batch de cualquier tamaño ──────────────────────
     def process_batch(frames_batch):
@@ -223,6 +225,16 @@ def video_analyzer(video_path, output_path, court_polygon, batch_size=8):
             #print(f"Datos añadidos al JSON: {frame_data}")
             idx_global += 1
 
+        for j, frame in enumerate(frames_batch):
+            # Obtener jugadores del frame correspondiente si quieres usar el historial (opcional)
+            for pid in sorted(tracked_players):
+                p = tracked_players[pid]
+                if p is not None:
+                    cv2.circle(frame, p, 5, (0, 255, 0), -1)
+                    cv2.putText(frame, f'Player {pid}', (p[0]+10, p[1]), cv2.FONT_HERSHEY_SIMPLEX,
+                                0.5, (0, 255, 0), 1, cv2.LINE_AA)
+            annotated_frames.append(frame.copy())
+
         frames_batch.clear()  # vaciamos para el siguiente uso
 
     # ── 4) Lectura en streaming + batching ─────────────────────────────────
@@ -238,9 +250,18 @@ def video_analyzer(video_path, output_path, court_polygon, batch_size=8):
     if batch_frames:
         process_batch(batch_frames)
 
+
+    #out = cv2.VideoWriter('output_with_tags.mp4', cv2.VideoWriter_fourcc(*'mp4v'),
+    #                  fps, (frame_w, frame_h))  # Ajusta fps, width, height
+
+    #for f in annotated_frames:
+    #   out.write(f)
+    
+    #out.release()
+
     cap.release()
 
-    print(f"[DEBUG] Procesamiento finalizado. Total frames procesados: {len(results_json['frames'])} y el resultado del JSON es {results_json}")
+    #print(f"[DEBUG] Procesamiento finalizado. Total frames procesados: {len(results_json['frames'])} y el resultado del JSON es {results_json}")
     return results_json
     
 

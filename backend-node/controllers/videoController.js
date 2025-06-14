@@ -90,12 +90,20 @@ exports.uploadVideo = async (req, res) => {
     fs.renameSync(tempPath, destPath);
     console.log('Vídeo movido a:', destPath)
 
+//PONER LOS JUGADORES CAMBIAR A QUE SE SAQUEN DEL FRONT
+    const playerPositions = {
+      'bottom_left': null,
+      'bottom_right': '681116daa4cf53837b002260',  // ID del usuario 1
+      'top_left': '682cd14ca694c304b2789940',     // ID del usuario 2
+      'top_right': null
+    };
 
     const matchDoc = await Match.create({
       owner: owner,
       videoName: fileName,
       filePath: destPath, 
-      status: 'pendiente'
+      status: 'pendiente',
+      playerPositions: playerPositions
     })
     const matchId = matchDoc._id.toString();
     console.log('Match guardado en Mongo con _id =', matchId);
@@ -158,7 +166,7 @@ exports.uploadVideo = async (req, res) => {
     console.log("Sacar los datos para un mapa de calor...");
     const heatmapData = await getHeatmapData(matchId);
 
-    console.log("Datos para el mapa de calor obtenidos:", heatmapData);
+    //console.log("Datos para el mapa de calor obtenidos:", heatmapData);
 
     // Guardar estadísticas en MongoDB y cambiar el estado del partido
     console.log("Guardando estadísticas en el documento Match de MongoDB...");
@@ -169,8 +177,9 @@ exports.uploadVideo = async (req, res) => {
       avgSpeeds,
       maxSpeeds
     };
-    matchDoc.heatmap = heatmapData;
+    
     matchDoc.analysis = analysis;
+    matchDoc.heatmap = heatmapData;
     matchDoc.status   = 'analizado';
     await matchDoc.save();
     console.log("Estadísticas guardadas en MongoDB:", analysis);
