@@ -2,8 +2,12 @@
 import { defineStore } from 'pinia';
 import videoService from '../services/videoService';
 
+
 export const useVideoStore = defineStore('video', {
   state: () => ({
+    macthName: null,
+    macthDate: null,
+    macthLocation: null,
     matchId: null,
     file: null,
     fileName: null,
@@ -12,6 +16,7 @@ export const useVideoStore = defineStore('video', {
     displayWidth: 0,
     displayHeight: 0,
     corners: [],
+    playersPositions: [],
     esquinasEnviadas: false,
     analisisResultado: null,
     debugMessages: []
@@ -33,11 +38,9 @@ export const useVideoStore = defineStore('video', {
     async subirArchivoTemp() {
       try {
         this.agregarDebug("Subiendo archivo a temp...");
-        const data = await videoService.uploadVideoTemp(this.file);
-        this.agregarDebug(`Archivo subido a temp: ${JSON.stringify(data)}`);
+        await videoService.uploadVideoTemp(this.file);
         return true;
       } catch (error) {
-        this.agregarDebug(`Error al subir archivo a temp: ${error.message}`);
         return false;
       }
     },
@@ -50,12 +53,10 @@ export const useVideoStore = defineStore('video', {
       }
 
       const { fileName } = await videoService.uploadVideoTemp(this.file);
-      this.agregarDebug(`Archivo subido con fileName=${fileName}`);
       this.fileName = fileName;
 
       const { frame } = await videoService.loadFrame(fileName);
       this.frameImage = `data:image/jpeg;base64,${frame}`;
-      this.agregarDebug("Primer frame obtenido correctamente");
     },
 
     // Registra un punto (coordenada) al hacer click en la imagen.
@@ -68,14 +69,28 @@ export const useVideoStore = defineStore('video', {
 
       if (this.corners.length < 4) {
         this.corners.push({ x: Math.floor(x), y: Math.floor(y) });
-        this.agregarDebug(`Punto registrado: (${Math.floor(x)}, ${Math.floor(y)})`);
+      } 
+    },
+
+    // Marca jugadores en la imagen al hacer click.
+    registrarJugador(event, frameImg) {
+      if (!frameImg) return;
+      const rect = frameImg.getBoundingClientRect();
+      const x = Math.floor(event.clientX - rect.left);
+      const y = Math.floor(event.clientY - rect.top);
+
+      if (this.playersPositions.length < 4) {
+        this.playersPositions.push({ x, y });
+        //this.agregarDebug(`> [STORE] Posición ${this.playersPositions.length} registrada en (${x}, ${y})`);
+        console.log('[STORE] playersPositions:', this.playersPositions);
       } else {
-        this.agregarDebug("Ya se han registrado 4 puntos.");
+        this.agregarDebug("Ya se han registrado 4 jugadores.");
       }
     },
 
     // Recibe la imagem para sacar el tamaño
     enviarImage(frameImg) {
+      console.log('🚀 [STORE] enviarImage, playersPositions antes:', this.playersPositions);
       if (!frameImg) {
         this.agregarDebug("No hay imagen para enviar.");
         return;
@@ -83,55 +98,48 @@ export const useVideoStore = defineStore('video', {
       this.displayWidth = frameImg.clientWidth;
       this.displayHeight = frameImg.clientHeight;
       this.agregarDebug(`Enviando imagen con tamaño: ${frameImg.clientWidth}x${frameImg.clientHeight}`);
+      console.log('🚀 [STORE] enviarImage, playersPositions después:', this.playersPositions);
     },
 
-    // Envía las esquinas seleccionadas a la API.
-    async enviarEsquinas() {
-      if (this.corners.length !== 4) {
-        this.agregarDebug("Debe seleccionar 4 puntos antes de enviar.");
-        return;
-      }
-      try {
-        const esquinasFormateadas = this.corners.map(p => [p.x, p.y]);
-        const display_width = this.displayWidth
-        const display_height = this.displayHeight
-        const payload = {
-          corners: esquinasFormateadas,
-          display_width,
-          display_height
-        };
-        this.agregarDebug(`Enviando esquinas con payload: ${JSON.stringify(payload)}`);
-        await videoService.sendCorners(payload);
-        this.esquinasEnviadas = true;
-      } catch (error) {
-        this.agregarDebug(`Error en enviarEsquinas: ${error.message}`);
-      }
-    }, 
 
     // Envía el video para que se realice el análisis y guarda el resultado.
     async analizarVideo() {
+      console.log('🚀 [STORE] Se ha llamado a analizarVideo()');
       if (!this.file) {
-        this.agregarDebug("No hay archivo para analizar.");
+        this.agregarDebug("No hay archivo para analizar.")
         return;
       }
       if (this.corners.length !== 4) {
-        this.agregarDebug("Debe seleccionar 4 puntos antes de analizar.");
+        this.agregarDebug("Debe seleccionar 4 puntos antes de analizar.")
         return;
       }
       try {
         this.agregarDebug("Iniciando análisis de video con upload_video");
-        const esquinasFormateadas = this.corners.map(p => [p.x, p.y]);
+        //console.log('[videoStore] Que hay en playersPositions:', this.playersPositions)
+        const matchName = this.macthName
+        const matchDate = this.macthDate
+        const matchLocation = this.macthLocation
+
+        const esquinasFormateadas = this.corners.map(p => [p.x, p.y])
         const display_width = this.displayWidth
         const display_height = this.displayHeight
+        console.log('[videoStore] Players positions:', this.playersPositions)
+        const players_positions = this.playersPositions.map(p => ({ ...p }))
+        console.log('[videoStore] Players positions formateados:', players_positions)
         const payload = {
+          matchName,
+          matchDate,
+          matchLocation,
           corners: esquinasFormateadas,
           display_width,
-          display_height
+          display_height, 
+          players_positions
         };
-        const { matchId, analysis } = await videoService.uploadVideo(this.fileName, payload);
+        //console.log('[videoStore] Payload para upload_video:', payload);
+        const { matchId, analysis } = await videoService.uploadVideo(this.fileName, payload)
         this.matchId           = matchId
         this.analisisResultado = analysis
-        this.agregarDebug(`Respuesta de upload_video: ${JSON.stringify({matchId, analysis})}`);
+        this.agregarDebug(`Respuesta de upload_video: ${JSON.stringify({matchId, analysis})}`)
         //this.analisisResultado = response.data;
       } catch (error) {
         console.error('Error en analizarVideo:', {

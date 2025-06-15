@@ -39,3 +39,16 @@ export const registerService = async (nombre, email, password) => {
     throw error; 
   }
 };
+
+// Funcion para ver si el usuario existe
+export const comprobarExistencia = async (username) => {
+  //console.log("📡 Llamando a backend con usuario:", username)
+  try {
+      const response = await axios.post(`/api/users/check`, {username});
+      //console.log("📬 Respuesta recibida:", response.data)
+      return response.data; 
+    } catch (error) {
+      console.error('[❌ userService] Error comprobando usuario:', error);
+      throw error;
+    }
+}

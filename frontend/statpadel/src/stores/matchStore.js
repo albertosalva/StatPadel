@@ -8,7 +8,9 @@ export const useMatchStore = defineStore('match', {
     loading: false,
     error: null,
     editingId: null,
-    editingName: ''
+    editingForm: { matchName: '', matchDate: null, matchLocation: ''},
+    editingPlayersForm: { top_left: '', top_right: '', bottom_right: '', bottom_left: '' },
+    editingPlayersValid: { top_left: null, top_right: null, bottom_right: null,bottom_left: null}
   }),
   actions: {
     async fetchMatches() {
@@ -34,20 +36,69 @@ export const useMatchStore = defineStore('match', {
     },
     startEdit(match) {
       this.editingId = match._id
-      this.editingName = match.videoName
+      this.editingForm = {
+        matchName: match.matchName,
+        matchDate: match.matchDate ? new Date(match.matchDate) : null,
+        matchLocation: match.matchLocation
+      }
+      this.editingPlayersForm = {
+        top_left:     match.playerPositions.top_left?.username || '',
+        top_right:    match.playerPositions.top_right?.username || '',
+        bottom_right: match.playerPositions.bottom_right?.username || '',
+        bottom_left:  match.playerPositions.bottom_left?.username || '',
+      }
+      
     },
     cancelEdit() {
       this.editingId = null
+      this.editingForm = { matchName:'', matchDate:null, matchLocation:'' }
+      this.editingPlayersForm = { top_left:'', top_right:'', bottom_right:'', bottom_left:'' }
     },
     async saveEdit(id) {
       try {
-        const updated = await matchService.updateMatch(id, this.editingName)
+        const updatedMatch = await matchService.updateMatch(id, this.editingForm)
+        const updatedPlayers = await matchService.updatePlayers(id, this.editingPlayersForm);
+
         const idx = this.matches.findIndex(m => m._id === id)
-        if (idx !== -1) this.matches[idx].videoName = updated.videoName
-        this.editingId = null
+
+        if (idx !== -1) {
+          this.matches[idx] = {
+            ...this.matches[idx],
+            // datos generales
+            matchName:     updatedMatch.matchName,
+            matchDate:     updatedMatch.matchDate,
+            matchLocation: updatedMatch.matchLocation,
+            // posiciones de jugadores actualizadas
+            playerPositions: updatedPlayers.playerPositions
+          }
+        }
+        this.cancelEdit();
       } catch (err) {
         alert(err.response?.data?.error || err.message)
       }
+    },
+    async verificarJugadorEditado(username, key) {
+      if (!username) {
+        this.editingPlayersValid[key] = null;
+        return;
+      }
+      try {
+        const { exists } = await import('@/services/userService')
+                                  .then(m => m.comprobarExistencia(username));
+        this.editingPlayersValid[key] = exists;
+        if (!exists) {
+          // mostramos un mensaje de error global
+          import('element-plus').then(({ ElMessage }) =>
+            ElMessage.error(`El jugador “${username}” no está registrado.`)
+          );
+        }
+      } catch {
+        this.editingPlayersValid[key] = false;
+        import('element-plus').then(({ ElMessage }) =>
+          ElMessage.error('Error comprobando el jugador.')
+        );
+      }
     }
+    
   }
 })

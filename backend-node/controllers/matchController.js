@@ -1,6 +1,6 @@
 // controllers/matchController.js
 const Match = require('../models/Match')
-const Usuario = require('../models/Users');
+const User = require('../models/Users');
 const mongoose = require('mongoose');
 const path = require('path');
 const fs = require('fs').promises;
@@ -22,7 +22,17 @@ const deleteApi = new DeleteAPI(influxClient);
 exports.getMyMatches = async (req, res) => {
   try {
     const ownerId = req.user.id
-    const partidos = await Match.find({ owner: ownerId }).lean()
+    const partidos = await Match.find({ owner: ownerId })
+    // Escogemos sólo los campos que queremos devolver
+    .select('matchName matchDate matchLocation status playerPositions')
+    // Poblar sólo las esquinas en playerPositions con username
+    .populate('playerPositions.top_left',     'username')
+    .populate('playerPositions.top_right',    'username')
+    .populate('playerPositions.bottom_right', 'username')
+    .populate('playerPositions.bottom_left',  'username')
+    .sort({ uploadDate: -1 })
+    .lean()
+    console.log('Partidos encontrados:', partidos)
     return res.json(partidos)
   } catch (err) {
     console.error('Error en getMyMatches:', err)
@@ -80,13 +90,23 @@ exports.updateMatch = async (req, res) => {
     try {
       const ownerId   = req.user.id
       const matchId   = req.params.id
-      const { videoName } = req.body
+      const { matchName, matchDate, matchLocation } = req.body
+
+      console.log('Payload recibido en updateMatch:', req.body)
+
+      const update = {
+        matchName,
+        matchDate,
+        matchLocation
+      }
   
       const match = await Match.findOneAndUpdate(
         { _id: matchId, owner: ownerId },
-        { videoName },
+        update,
         { new: true }
       )
+
+      console.log('Partido actualizado:', match)
   
       if (!match) {
         return res.status(404).json({ error: 'Partido no encontrado o no autorizado' })
@@ -142,5 +162,49 @@ exports.getMatchById = async (req, res) => {
     console.error('Error en getMatchById:', err)
     return res.status(500).json({ error: err.message })
   }
+}
+
+
+exports.updatePlayers = async (req, res) => {
+  const ownerId = req.user.id
+  const matchId = req.params.id
+  const { top_left, top_right, bottom_right, bottom_left } = req.body
+
+  // Convertir nombres a ObjectId si existe usuario o null
+  const map = { top_left, top_right, bottom_right, bottom_left }
+  const playerPositions = {}
+
+  for (const key of Object.keys(map)) {
+    const username = map[key]
+    if (username) {
+      const u = await User.findOne({ username }).select('_id')
+      if (u) {
+        playerPositions[key] = u._id
+      } else {
+        console.warn(`⚠️ [updatePlayers] no existe usuario "${username}", asignando null`)
+        playerPositions[key] = null
+      }
+    } else {
+      playerPositions[key] = null
+    }
+  }
+
+  const match = await Match.findOneAndUpdate(
+    { _id: matchId, owner: ownerId },
+    { playerPositions },
+    { new: true }
+  )
+
+  if (!match) {
+    console.error('❌ [updatePlayers] partido no encontrado o no autorizado')
+    return res.status(404).json({ error: 'Match not found or unauthorized' })
+  }
+
+  await match.populate('playerPositions.top_left', 'username')
+  await match.populate('playerPositions.top_right', 'username')
+  await match.populate('playerPositions.bottom_right', 'username')
+  await match.populate('playerPositions.bottom_left', 'username')
+
+  return res.json({ playerPositions: match.playerPositions })
 }
 

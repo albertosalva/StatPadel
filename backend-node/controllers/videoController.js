@@ -5,6 +5,7 @@ const path = require('path');
 const FormData = require('form-data');
 const fs = require('fs');
 const Match = require('../models/Match');
+const User = require('../models/Users');
 
 const { saveAnalysisToInflux, waitForInfluxData, getPlayersDistanceAndAvgSpeed, getMaxSpeed, getHeatmapData} = require('./influxController');
 
@@ -14,16 +15,20 @@ const FLASK_FastAPI = `http://${host}:${port}`;
 
 
 
-
-
-
 //Guardar vídeo en temp/
 exports.uploadVideoTemp = async (req, res) => {
-  console.log('[uploadVideoTemp] recibido:', req.file.originalname);
-  // Multer ya guardó en temp/, devolvemos el nombre
-  //res.json({ fileName: req.file.originalname });
-  console.log('Nombre del fichero cambiado:', req.file.filename)
-  res.json({ fileName: req.file.filename });
+  try {
+    console.log('[uploadVideoTemp] recibido:', req.file.originalname);
+    // Multer ya guardó en temp/, devolvemos el nombre
+    //res.json({ fileName: req.file.originalname });
+    const fileName = req.file.filename;
+    console.log('Nombre del fichero cambiado:', req.file.filename)
+    return res.status(200).json({ fileName });
+  }
+  catch (err) {
+    console.error('❌ Error en uploadVideoTemp:', err);
+    return res.status(500).json({ error: err.message });
+  }
 };
 
 exports.loadFrame = async (req, res) => {
@@ -66,13 +71,26 @@ exports.uploadVideo = async (req, res) => {
     if (!owner) {
       return res.status(401).json({ error: 'Usuario no autenticado' })
     }
-    //  ➤ Crear carpeta uploads/<owner> si no existe
-    
-    const { fileName, corners, display_width, display_height } = req.body;
-    console.log('[uploadVideo] recibido:', fileName, corners, display_width, display_height);
+
+    console.log('---> Payload recibido en backend:', req.body);
+    const {
+      fileName,
+      matchName,
+      matchDate,
+      matchLocation,
+      corners,
+      display_width,
+      display_height,
+      players_positions
+    } = req.body;
+    //console.log(fileName, matchName, matchDate, matchLocation, corners, display_width, display_height, players_positions);
+
+    //console.log('Jugadores recibidos:', players_positions);
     if (!fileName) {
       return res.status(400).json({ error: 'Falta fileName' });
     }
+
+    cornersSorted = ordenarEsquinas(corners);
 
     const tempPath = path.join(__dirname, '..', 'temp', fileName);
     if (!fs.existsSync(tempPath)) {
@@ -88,22 +106,20 @@ exports.uploadVideo = async (req, res) => {
     //  ➤ Definir nueva ruta definitiva y mover archivo
     const destPath = path.join(userDir, fileName);
     fs.renameSync(tempPath, destPath);
-    console.log('Vídeo movido a:', destPath)
 
-//PONER LOS JUGADORES CAMBIAR A QUE SE SAQUEN DEL FRONT
-    const playerPositions = {
-      'bottom_left': null,
-      'bottom_right': '681116daa4cf53837b002260',  // ID del usuario 1
-      'top_left': '682cd14ca694c304b2789940',     // ID del usuario 2
-      'top_right': null
-    };
+    const asignados = await clasificarJugadores(players_positions );
+    console.log('--------> Posiciones asignadas:', asignados);
+
 
     const matchDoc = await Match.create({
       owner: owner,
+      matchName: matchName,
+      matchDate: matchDate,
+      matchLocation: matchLocation,
       videoName: fileName,
       filePath: destPath, 
       status: 'pendiente',
-      playerPositions: playerPositions
+      playerPositions: asignados
     })
     const matchId = matchDoc._id.toString();
     console.log('Match guardado en Mongo con _id =', matchId);
@@ -111,11 +127,9 @@ exports.uploadVideo = async (req, res) => {
     console.log("Procesando vídeo temporal:", fileName);
     //const filePath = req.file.path;
 
-    console.log('req.user en uploadVideo:', req.user)
-
     // 4 Leer payload de esquinas y dimensiones
     console.log('[DEBUG] Payload recibido en Node:', {
-      corners,
+      cornersSorted,
       display_width,
       display_height
     });
@@ -128,7 +142,7 @@ exports.uploadVideo = async (req, res) => {
     const form = new FormData();
     //form.append('fileName', fileName);
     form.append('file_name', fileName);
-    form.append('corners', JSON.stringify(corners));
+    form.append('corners', JSON.stringify(cornersSorted));
     form.append('display_width', String(display_width));
     form.append('display_height', String(display_height));
     console.log('[DEBUG] FormData preparada para FastAPI');
@@ -148,7 +162,6 @@ exports.uploadVideo = async (req, res) => {
 
     // 4) Guardas el análisis en InfluxDB
     const data = response.data;
-    console.log("Guardando datos de análisis en InfluxDB...");
     const points = await saveAnalysisToInflux(data, matchId);
     //const points = await saveAnalysisToInflux(data, matchId);
     console.log("Datos guardados en InfluxDB. Puntos escritos:", points);
@@ -163,7 +176,6 @@ exports.uploadVideo = async (req, res) => {
     const maxSpeeds = await getMaxSpeed(matchId);
     console.log("Estadísticas recibidas correctamente.");
 
-    console.log("Sacar los datos para un mapa de calor...");
     const heatmapData = await getHeatmapData(matchId);
 
     //console.log("Datos para el mapa de calor obtenidos:", heatmapData);
@@ -182,7 +194,6 @@ exports.uploadVideo = async (req, res) => {
     matchDoc.heatmap = heatmapData;
     matchDoc.status   = 'analizado';
     await matchDoc.save();
-    console.log("Estadísticas guardadas en MongoDB:", analysis);
 
     
 
@@ -210,3 +221,62 @@ exports.uploadVideo = async (req, res) => {
   }
 };
 
+
+async function clasificarJugadores(players_positions = []) {
+
+  // 1) Inicializamos el resultado con nulls
+  const result = {
+    top_left:     null,
+    top_right:    null,
+    bottom_right: null,
+    bottom_left:  null
+  }
+
+  // 2) Si no hay ningún punto, devolvemos nulls instantly
+  if (!Array.isArray(players_positions) || players_positions.length === 0) {
+    return result
+  }
+
+  // 3) Calculamos métricas para cada punto
+  const puntos = players_positions.map(p => {
+    const sum  = p.x + p.y
+    const diff = p.x - p.y
+    return { ...p, sum, diff }
+  })
+
+  // 4) Extraemos usernames únicos para consulta
+  const usernames = Array.from(new Set(puntos.map(p => p.username).filter(Boolean)))
+
+  // 5) Traemos todos los usuarios de golpe
+  const users = await User.find({ username: { $in: usernames } }).select('_id username')
+  const userMap = new Map(users.map(u => [u.username, u._id]))
+
+  // 6) Asignamos a cada esquina el candidato más extremo
+  const tl = puntos.reduce((a, b) => a.sum  < b.sum  ? a : b)
+  const br = puntos.reduce((a, b) => a.sum  > b.sum  ? a : b)
+  const bl = puntos.reduce((a, b) => a.diff < b.diff ? a : b)
+  const tr = puntos.reduce((a, b) => a.diff > b.diff ? a : b)
+
+  // 7) Para cada uno, si tiene username, pedimos su ObjectId; si no, queda null
+  result.top_left     = userMap.get(tl.username) || null
+  result.top_right    = userMap.get(tr.username) || null
+  result.bottom_right = userMap.get(br.username) || null
+  result.bottom_left  = userMap.get(bl.username) || null
+
+  return result
+}
+
+function ordenarEsquinas(corners) {
+  if (!Array.isArray(corners) || corners.length !== 4) {
+    throw new Error("Se esperaban exactamente 4 esquinas");
+  }
+
+  const sorted = [...corners];
+
+  const topLeft = sorted.reduce((a, b) => a[0] + a[1] < b[0] + b[1] ? a : b);
+  const bottomLeft = sorted.reduce((a, b) => a[0] - a[1] < b[0] - b[1] ? a : b);
+  const bottomRight = sorted.reduce((a, b) => a[0] + a[1] > b[0] + b[1] ? a : b);
+  const topRight = sorted.reduce((a, b) => a[0] - a[1] > b[0] - b[1] ? a : b);
+
+  return [topLeft, topRight, bottomRight, bottomLeft];
+}

@@ -11,6 +11,8 @@ router.delete('/:id', checkAuth, matchController .deleteMatch)
 
 router.put('/:id', checkAuth, matchController .updateMatch)
 
-router.get('/:id', checkAuth, matchController .getMatchById);
+router.get('/:id', checkAuth, matchController .getMatchById)
+
+router.put('/:id/players', checkAuth, matchController.updatePlayers)
 
 module.exports = router

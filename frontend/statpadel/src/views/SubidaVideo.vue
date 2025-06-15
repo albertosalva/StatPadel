@@ -14,39 +14,48 @@
         finish-status="success"
         align-center
       >
-        <el-step title="Subir vídeo" :icon="Upload" />
+        <el-step title="Datos y subida del partido" :icon="EditPen" />
+        <el-step title="Identificar jugadores" :icon="User" />
         <el-step title="Seleccionar esquinas" :icon="Pointer" />
-        <el-step title="Ejecutar análisis" :icon="Loading" />
       </el-steps>
 
       <!-- ===== PASO 1: Subida de vídeo ===== -->
       <div v-if="activeStep === 0" class="paso">
         <h2>Sube tu vídeo</h2>
+        
+        <el-form @submit.prevent="continuarPaso1" :model="form" ref="formRef" :rules="rules"
+          class="upload-form" label-width="0" >
 
-        <!-- Área de arrastrar o hacer clic para seleccionar -->
-        <el-upload
-          class="upload-area"
-          drag
-          accept="video/*"
-          :auto-upload="false"
-          :limit="1"
-          v-model:file-list="fileList"
-          @change="onFileChange"
-        >
-          <el-icon class="upload-icon">
-            <UploadFilled />
-          </el-icon>
-          <div class="upload-text">
-            Arrastra el vídeo aquí o <em>haz clic para seleccionar</em>
-          </div>
+          <!-- Nombre del partido -->
+          <el-input v-model="form.matchName" placeholder="Nombre del partido*" :prefix-icon="EditPen"
+            clearable />
 
-          <!-- Tip informativo -->
-          <template #tip>
-            <div class="upload-tip">
-              Solo se aceptan vídeos (.mp4, .mov, .avi…)
+          <!-- Lugar -->
+          <el-input v-model="form.location" placeholder="Lugar del partido" :prefix-icon="Location"
+            clearable />
+
+          <!-- Fecha -->
+          <el-date-picker v-model="form.date" type="date" placeholder="Fecha del partido*"
+            :prefix-icon="Calendar" clearable />
+
+          <!-- Área de arrastrar o hacer clic para seleccionar -->
+          <el-upload class="upload-area" drag accept="video/*" :auto-upload="false"
+            :limit="1" v-model:file-list="fileList" @change="onFileChange" :src="uploadedUrl" controls >
+            <el-icon class="upload-icon">
+              <UploadFilled />
+            </el-icon>
+            <div class="upload-text">
+              Arrastra el vídeo aquí o <em>haz clic para seleccionar</em>
             </div>
-          </template>
-        </el-upload>
+
+            <!-- Tip informativo -->
+            <template #tip>
+              <div class="upload-tip">
+                Solo se aceptan vídeos (.mp4, .mov, .avi…)
+              </div>
+            </template>
+          </el-upload>
+        </el-form>
 
         <!-- Botones de navegación -->
         <div class="step-actions">
@@ -55,11 +64,7 @@
               <el-icon class="el-icon--right"><ArrowLeft /></el-icon>
               Volver
             </el-button>
-            <el-button
-              type="primary"
-              :disabled="fileList.length === 0"
-              @click="continuarPaso1"
-            >
+            <el-button type="primary" :disabled="!canContinueStep1" @click="continuarPaso1" >
               Continuar
               <el-icon class="el-icon--right"><ArrowRight /></el-icon>
             </el-button>
@@ -67,8 +72,73 @@
         </div>
       </div>
 
-      <!-- ===== PASO 2: Seleccionar esquinas ===== -->
+
+      <!-- ===== PASO 2: Seleccionar jugadores ===== -->
       <div v-if="activeStep === 1" class="paso">
+        <h2>Selecciona las posiciones de los jugadores (opcional)</h2>
+
+        <!-- Checkbox y botón de reset -->
+        <el-cotainer class="assign-controls" style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+          <el-checkbox v-model="assignPlayers">
+            Asignar jugadores para estadísticas
+          </el-checkbox>
+          <el-button  type="danger" @click="limpiarSeleccionJugadores" >
+            Resetear selección
+            <el-icon class="el-icon--right"><Delete /></el-icon>
+          </el-button>
+        </el-cotainer>
+
+        <!-- 2) Mensaje instructivo -->
+        <el-alert v-if="!assignPlayers"
+          title="Si no deseas asignar jugadores, haz clic en Continuar para omitir este paso."
+          type="primary" show-icon class="mt-4"/>
+
+        <div v-if="frameImage" class="frame-container">
+          
+
+          <el-row v-if="assignPlayers" :gutter="20" class="players-inputs">
+            <el-col v-for="( _, i ) in nombresJugadores" :key="i" :xs="24" :sm="12" :md="6">
+              <el-card shadow="hover">
+                <div :class="['input-wrapper',
+                  usuarioValido[i] === true ? 'valido' : '',
+                  usuarioValido[i] === false ? 'invalido' : ''
+                ]">
+                  <el-input v-model="nombresJugadores[i]" :placeholder="`Nombre del jugador ${i + 1}`"
+                    @blur="verificarUsuario(nombresJugadores[i], i)" clearable />
+                </div>
+              </el-card>
+            </el-col>
+          </el-row>
+
+          <!-- Imagen del primer frame + puntos -->
+          <div class="image-wrapper">
+            <img :src="frameImage" alt="Primer frame del vídeo"
+              @click="assignPlayers && registrarJugador($event)" ref="frameImg" />
+            <div v-for="(player, i) in playersPositions" :key="i" class="punto"
+              :style="{ left: player.x + 'px', top: player.y + 'px' }" @click.stop="deseleccionarJugador(i)" >
+              {{ i + 1 }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Botones de navegación -->
+        <div class="step-actions">
+          <el-button-group>
+            <el-button type="primary" @click="volverAtras">
+              <el-icon class="el-icon--right"><ArrowLeft /></el-icon>
+              Volver
+            </el-button>
+            <el-button  type="primary" :disabled="fileList.length === 0" @click="comprobarTodosYContinuar">
+                Continuar
+              <el-icon class="el-icon--right"><ArrowRight /></el-icon>
+            </el-button>
+          </el-button-group>
+        </div>
+      </div>
+
+
+      <!-- ===== PASO 3: Seleccionar esquinas ===== -->
+      <div v-if="activeStep === 2" class="paso">
         <h2>Selecciona 4 esquinas</h2>
 
         <div v-if="frameImage" class="frame-container">
@@ -105,55 +175,15 @@
             <el-button
               type="primary"
               :disabled="corners.length < 4"
-              @click="enviarEsquinasYContinuar"
+              @click="analizarVideo"
             >
-              Enviar esquinas
+              Analizar vídeo
               <el-icon class="el-icon--right"><ArrowRight /></el-icon>
             </el-button>
           </el-button-group>
         </div>
       </div>
 
-      <!-- ===== PASO 3: Ejecutar análisis ===== -->
-      <div v-if="activeStep === 2" class="paso">
-        <h2>Ejecutar análisis</h2>
-
-        <!-- Botones principales del análisis -->
-        <div class="step-actions">
-          <el-button
-            type="primary"
-            @click="analizarVideo"
-            v-loading.fullscreen.lock="fullscreenLoading"
-            element-loading-text="Analizando el vídeo… esto puede tardar varios minutos"
-            :element-loading-spinner="svg"
-            element-loading-svg-view-box="-10, -10, 50, 50"
-          >
-            Analizar vídeo
-          </el-button>
-
-          <el-button
-            type="success"
-            @click="onStats(matchId)"
-            :disabled="!matchId"
-          >
-            Ver estadísticas
-          </el-button>
-        </div>
-
-        <!-- Botones de navegación -->
-        <div class="step-actions">
-          <el-button-group>
-            <el-button type="primary" @click="volverAtras">
-              <el-icon class="el-icon--right"><ArrowLeft /></el-icon>
-              Volver
-            </el-button>
-            <el-button type="primary" disabled>
-              Continuar
-              <el-icon class="el-icon--right"><ArrowRight /></el-icon>
-            </el-button>
-          </el-button-group>
-        </div>
-      </div>
 
       <!-- ===== SECCIÓN OPCIONAL DE DEPURACIÓN ===== -->
       <!--
@@ -165,6 +195,10 @@
       </div>
       -->
 
+      <div v-if="!isAnalyzing">
+    <!-- Aquí va tu flujo normal: pasos, botones, etc. -->
+  </div>
+
     </el-main>
 
     <!-- Pie de página global -->
@@ -175,18 +209,23 @@
 
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, reactive, watch} from 'vue'
 import { useRouter } from 'vue-router'
 import {
   UploadFilled,
-  Upload,
   Pointer,
-  Loading,
   ArrowRight,
-  ArrowLeft
+  ArrowLeft,
+  EditPen,
+  Calendar,
+  Location, 
+  Delete,
+  User
 } from '@element-plus/icons-vue'
+import { ElMessage, ElNotification } from 'element-plus'
 
 import { useVideoStore } from '@/stores/videoStore'
+import { comprobarExistencia } from '@/services/userService'
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
 
@@ -200,28 +239,24 @@ const fileList = ref([])
 const frameImg = ref(null)
 const fullscreenLoading = ref(false)
 
-// SVG para loading
-const svg = `
-  <path class="path" d="
-    M 30 15
-    L 28 17
-    M 25.61 25.61
-    A 15 15, 0, 0, 1, 15 30
-    A 15 15, 0, 1, 1, 27.99 7.5
-    L 15 15
-  " style="stroke-width: 4px; fill: rgba(0, 0, 0, 0)"/>
-`
+const formRef = ref(null)
+const form = reactive({
+  matchName: '',
+  date: null,
+  location: ''
+})
+
+// Validación de usuarios
+const usuarioValido = ref([null, null, null, null])
+const nombresJugadores = ref(["", "", "", ""])
+const assignPlayers = ref(false)  
 
 // Computed
-const matchId = computed(() => videoStore.matchId)
 const frameImage = computed(() => videoStore.frameImage)
 const corners = computed(() => videoStore.corners)
+const playersPositions = computed(() => videoStore.playersPositions)
 //const debugMessages = computed(() => videoStore.debugMessages)
 
-// Navegar a estadísticas
-const onStats = (id) => {
-  router.push({ name: 'ResultadosEstadisticas', params: { id } })
-}
 
 // Cambio de archivo
 const onFileChange = (_file, newFileList) => {
@@ -234,10 +269,53 @@ const onFileChange = (_file, newFileList) => {
 
 // Paso 1 → Paso 2
 const continuarPaso1 = async () => {
-  if (fileList.value.length === 0) return
-  await videoStore.iniciarCarga()
-  activeStep.value = 1
+  formRef.value.validate(async valid => {
+    if (!valid) {
+      ElMessage.error('Por favor, completa correctamente todos los campos.')
+      return
+    }
+    // 2.2 Asegurarnos de que hay un archivo
+    if (fileList.value.length === 0) {
+      ElMessage.error('Sube un vídeo antes de continuar.')
+      return
+    }
+
+    videoStore.macthName = form.matchName
+    videoStore.macthDate = form.date
+    videoStore.macthLocation = form.location
+
+    // 2.3 Iniciar carga y avanzar
+    try {
+      await videoStore.iniciarCarga()
+      activeStep.value = 1
+    } catch (e) {
+      ElMessage.error('Error al iniciar la carga. Intenta de nuevo.')
+    }
+  })
 }
+
+// REGLAS DE VALIDACIÓN
+const rules = {
+  matchName: [
+    { required: true, message: 'Indica el nombre del partido', trigger: 'blur' }
+  ],
+  date: [
+    { type: 'date', required: true, message: 'Selecciona una fecha', trigger: 'change' }
+  ],
+  location: [
+    { required: true, message: 'Indica el lugar del partido', trigger: 'blur' }
+  ]
+}
+
+const canContinueStep1 = computed(() => {
+  return (
+    form.matchName &&
+    form.date &&
+    form.location &&
+    fileList.value.length === 1
+  )
+})
+
 
 // Click en imagen (guardar punto)
 const registrarPunto = (event) => {
@@ -249,18 +327,109 @@ const deseleccionarPunto = (index) => {
   videoStore.corners.splice(index, 1)
 }
 
-// Paso 2 → Paso 3
-const enviarEsquinasYContinuar = async () => {
-  videoStore.enviarImage(frameImg.value)
+// Click en imagen (guardar punto)
+const registrarJugador = (event) => {
+  videoStore.registrarJugador(event, frameImg.value)
+}
+
+// Eliminar punto
+const deseleccionarJugador = (index) => {
+  videoStore.playersPositions.splice(index, 1)
+}
+
+// Validar usuario
+async function verificarUsuario(username, index) {
+  if (!username) {
+    usuarioValido.value[index] = null;
+    return;
+  }
+  console.log(`> [STORE] Verificando nombre “${username}” para posición ${index}`);
+  try {
+    //console.log("🔍 Verificando usuario:", username);
+    const res = await comprobarExistencia(username);
+    //console.log("✅ Resultado de comprobación:", res);
+    usuarioValido.value[index] = res.exists;
+    console.log(`[STORE] Usuario válido[${index}] =`, res.exists);
+    if (!res.exists) {
+      ElMessage.error(`El usuario “${username}” no está registrado.`);
+    }
+    if (videoStore.playersPositions[index]) {
+      videoStore.playersPositions[index].username = nombresJugadores.value[index] || '';
+      console.log('[STORE] playersPositions tras asignar user:', videoStore.playersPositions);
+    }
+  } catch (err) {
+    console.error("❌ Error al verificar usuario:", err);
+    usuarioValido.value[index] = false;
+    ElMessage.error('Hubo un error al comprobar el usuario.');
+  }
+}
+
+// Verifica todos al continuar
+const comprobarTodosYContinuar = async () => {
+  // 1) Si no quiere asignar jugadores, simplemente avanza
+  if (!assignPlayers.value) {
+    activeStep.value = 2
+    return
+  }
+
+  const marcadas = playersPositions.value.length
+
+  // 2) Necesita las 4 posiciones
+  if (marcadas < 4) {
+    ElMessage.error(`Debes marcar las 4 posiciones (has marcado ${marcadas}).`)
+    return
+  }
+
+  // 3) Comprobar nombres inválidos
+  //    Si el usuario ha introducido un nombre y está marcado como inválido, bloqueamos
+  for (let i = 0; i < 4; i++) {
+    const name = nombresJugadores.value[i]?.trim()
+    if (name && usuarioValido.value[i] === false) {
+      ElMessage.error(`El nombre “${name}” para el jugador ${i+1} no es válido.`)
+      return
+    }
+  }
+
+  // 4) Todos OK: avanzamos
   activeStep.value = 2
 }
 
+// Función para limpiar selección de jugadores
+function limpiarSeleccionJugadores() {
+  // Limpia el array de posiciones en el store (si tienes un método mejor, úsalo)
+  videoStore.playersPositions = []
+  // Reinicia los nombres y validaciones
+  nombresJugadores.value = ['', '', '', '']
+  usuarioValido.value = [null, null, null, null]
+}
+
+// Al cambiar de paso...
+watch(activeStep, (newStep, oldStep) => {
+  if (oldStep === 1 && newStep < oldStep) {
+    limpiarSeleccionJugadores()
+  }
+})
+
+
+
+
 // Ejecutar análisis (Paso 3)
 const analizarVideo = async () => {
-  fullscreenLoading.value = true
+  videoStore.enviarImage(frameImg.value)
   try {
     //await videoStore.enviarEsquinas()
-    await videoStore.analizarVideo()
+    //await videoStore.analizarVideo()
+    console.log('🖥️ [COMPONENT] Botón “Analizar vídeo” pulsado');
+    videoStore.analizarVideo()
+
+    ElNotification({
+      title: 'Análisis iniciado',
+      message: 'Tu vídeo está siendo analizado. Puedes seguir usando la aplicación.',
+      type: 'success',
+      duration: 0
+    })
+    videoStore.$reset()
+    router.push({ name: 'Principal' })
   } finally {
     fullscreenLoading.value = false
   }
@@ -356,6 +525,47 @@ h2 {
   color: var(--el-text-color-secondary);
   margin-top: 16px;
 }
+
+/* =============================== */
+/* 1) Ancho unificado de campos    */
+/* =============================== */
+.upload-form .el-input,
+.upload-form .el-date-picker {
+  width: 80%;                 /* mismo ancho relativo al contenedor */
+  max-width: 600px;           /* igual que el uploader */
+  margin: 0 auto 1rem;        /* centrado + separación inferior */
+  box-sizing: border-box;
+}
+
+/* Ajuste interno de inputs y date-picker */
+.upload-form .el-input__inner,
+.upload-form .el-date-picker .el-input__inner {
+  height: 48px;
+  padding: 10px 14px;
+  font-size: 1rem;
+  border-radius: 6px;
+  color: var(--el-text-color-primary);
+  transition: border-color .3s, box-shadow .3s;
+  background-color: transparent; /* se adapta al tema oscuro/claro */
+}
+
+/* Placeholder con tono secundario */
+.upload-form .el-input__inner::placeholder,
+.upload-form .el-date-picker .el-input__inner::placeholder {
+  color: var(--el-text-color-secondary);
+}
+
+/* =============================== */
+/* 2) Resaltar en rojo errores     */
+/* =============================== */
+/* Cuando el <el-form-item> tenga .is-error */
+.upload-form .el-form-item.is-error .el-input__inner,
+.upload-form .el-form-item.is-error .el-date-editor .el-input__inner {
+  border-color: var(--el-color-danger) !important;
+  box-shadow: 0 0 0 2px rgba(245,108,108,0.2) !important;
+}
+
+
 
 /* Botones de pasos */
 .step-actions {
@@ -477,4 +687,59 @@ h2 {
     margin-bottom: 24px;
   }
 }
+
+
+.players-inputs {
+  margin-bottom: 20px;
+}
+
+.player-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.input-wrapper {
+  border: 2px solid transparent;
+  border-radius: 6px;
+  padding: 2px;
+  transition: border 0.3s ease;
+}
+
+.input-wrapper.valido {
+  border-color: #67c23a; /* verde */
+}
+
+.input-wrapper.invalido {
+  border-color: #f56c6c; /* rojo */
+}
+
+
+.image-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.punto {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background-color: red;
+  color: white;
+  border-radius: 50%;
+  font-size: 12px;
+  text-align: center;
+  line-height: 20px;
+}
+
+.assign-controls {
+  display: flex;
+  justify-content: center;  /* centra horizontalmente */
+  align-items: center;      /* centra verticalmente */
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
 </style>

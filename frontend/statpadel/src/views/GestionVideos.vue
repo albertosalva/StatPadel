@@ -8,7 +8,7 @@
     <!-- Botón para crear un nuevo partido -->
     <div class="actions">
       <router-link to="/subida-video">
-        <el-button type="primary" :plain="isDark" :icon="Plus">Subir nuevo vídeo</el-button>
+        <el-button type="primary" :plain="isDark" :icon="Plus">Subir nuevo partido</el-button>
       </router-link>
     </div>
 
@@ -21,65 +21,132 @@
     <el-table
       v-if="!matchStore.loading"
       :data="paginatedMatches"
-      stripe
+      :table-layout="'auto'"
       style="width: 100%; margin-top: 20px"
+      border
+      stripe
+      fit
       empty-text="No tienes ningún partido subido todavía."
     >
-      <!-- Nombre del vídeo (editable) -->
-      <el-table-column label="Nombre">
+      <!-- Nombre del partido -->
+      <el-table-column label="Nombre" prop="matchName" sortable>
         <template #default="{ row }">
           <div v-if="matchStore.editingId === row._id">
-            <el-input v-model="matchStore.editingName" size="small" />
+            <el-input v-model="matchStore.editingForm.matchName" size="small" />
           </div>
-          <div v-else>
-            {{ nombreSinExtension(row.videoName) }}
-          </div>
+          <div v-else>{{ row.matchName }}</div>
         </template>
       </el-table-column>
 
-      <!-- Fecha -->
-      <el-table-column label="Fecha de subida" prop="uploadDate">
+      <!-- Fecha del partido -->
+      <el-table-column label="Fecha" prop="matchDate" sortable>
         <template #default="{ row }">
-          {{ formatDate(row.uploadDate) }}
+          <div v-if="matchStore.editingId === row._id">
+            <el-date-picker
+              v-model="matchStore.editingForm.matchDate"
+              type="date"
+              size="small"
+              placeholder="Fecha del partido"
+              style="width: 120px;"
+            />
+          </div>
+          <div v-else>{{ formatDate(row.matchDate) }}</div>
         </template>
       </el-table-column>
 
-      <!-- Acciones -->
+      <!-- Lugar del partido -->
+      <el-table-column label="Lugar" prop="matchLocation" sortable>
+        <template #default="{ row }">
+          <div v-if="matchStore.editingId === row._id">
+            <el-input v-model="matchStore.editingForm.matchLocation" size="small" />
+          </div>
+          <div v-else>{{ row.matchLocation }}</div>
+        </template>
+      </el-table-column>
+
+      <!-- Jugadores asignados -->
+<el-table-column label="Jugadores">
+  <template #default="{ row }">
+    <!-- lectura -->
+    <div v-if="matchStore.editingId !== row._id">
+      <el-collapse accordion expand-icon-position="left">
+        <el-collapse-item title="Mostrar jugadores" name="players">
+          <div class="players-list">
+            <div class="player-row" v-for="(label, key) in labels" :key="key">
+              <span class="player-label">{{ label }}:</span>
+              <span class="player-name">
+                {{
+                  (
+                    (row.playerPositions && row.playerPositions[key]) || {}
+                  ).username || 'Sin asignar'
+                }}
+              </span>
+            </div>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
+    </div>
+
+    <!-- edición -->
+    <div v-else>
+      <el-row :gutter="12">
+        <el-col
+          v-for="(label, key) in labels"
+          :key="key"
+          :xs="24" :sm="12" :md="6"
+        >
+          <el-form-item :prop="`playerPositions.${key}`">
+            <div class="input-wrapper"
+                 :class="{
+                   valido:   matchStore.editingPlayersValid[key] === true,
+                   invalido: matchStore.editingPlayersValid[key] === false
+                 }"
+            >
+              <el-input
+                v-model="matchStore.editingPlayersForm[key]"
+                size="small"
+                clearable
+                :placeholder="label"
+                @blur="() => matchStore.verificarJugadorEditado(matchStore.editingPlayersForm[key], key)"
+              />
+            </div>
+          </el-form-item>
+        </el-col>
+      </el-row>
+    </div>
+  </template>
+</el-table-column>
+
+      <!-- Estado del vídeo -->
+      <el-table-column label="Estado" prop="status">
+        <template #default="{ row }">
+          <el-tag :type="row.status === 'analizado' ? 'success' : 'warning'" effect="light" >
+            <el-icon>
+              <component :is="row.status === 'analizado' ? Check : Loading" />
+            </el-icon>
+            {{ row.status === 'analizado' ? 'Analizado' : 'Analizando' }}
+          </el-tag>
+        </template>
+      </el-table-column>
+
+      <!-- Acciones: eliminar + estadísticas -->
       <el-table-column label="Acciones" class-name="col-acciones">
         <template #default="{ row }">
-          <div class="action-buttons" v-if="!isMobile">
+          <el-space>
             <template v-if="matchStore.editingId === row._id">
-              <el-button size="small" type="success" round :icon="Check" @click="matchStore.saveEdit(row._id)">
-                Guardar
-              </el-button>
-              <el-button size="small" round :icon="Close" @click="matchStore.cancelEdit()">
-                Cancelar
-              </el-button>
-            </template>
+              <el-button type="success" circle :icon="Check" @click="matchStore.saveEdit(row._id)"
+                :disabled="Object.values(matchStore.editingPlayersValid).some(v => v === false)"/>
+              <el-button type="danger" circle :icon="Close" @click="matchStore.cancelEdit()" />
+            </template >
             <template v-else>
-              <el-button size="small" round :icon="Edit" @click="matchStore.startEdit(row)">
-                Editar
-              </el-button>
-              <el-button size="small" round type="danger" :icon="Delete" @click="confirmarEliminacion(row._id)">
-                Eliminar
-              </el-button>
-              <el-button size="small" round type="info" :icon="Histogram" @click="onStats(row._id)">
-                Estadísticas
+              <el-button type="primary" circle  :icon="Edit" @click="onEditMatch(row._id)" />
+              <el-button type="danger" circle  :icon="Delete" @click="confirmarEliminacion(row._id)"/>
+              
+              <el-button type="success" circle  :icon="Histogram" @click="onStats(row._id)" 
+                :disabled="row.status !== 'analizado'">
               </el-button>
             </template>
-          </div>
-
-          <div class="action-buttons-mobile" v-else>
-            <template v-if="matchStore.editingId === row._id">
-              <el-button type="success" :icon="Check" circle @click="matchStore.saveEdit(row._id)" />
-              <el-button type="default" :icon="Close" circle @click="matchStore.cancelEdit()" />
-            </template>
-            <template v-else>
-              <el-button type="default" :icon="Edit" circle @click="matchStore.startEdit(row)" />
-              <el-button type="danger" :icon="Delete" circle @click="confirmarEliminacion(row._id)" />
-              <el-button type="info" :icon="Histogram" circle @click="onStats(row._id)" />
-            </template>
-          </div>
+          </el-space>
         </template>
       </el-table-column>
     </el-table>
@@ -109,8 +176,8 @@
 <script setup>
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
-import { onMounted, computed, ref, onUnmounted } from 'vue'
-import { Plus, Search, Delete, Edit, Histogram, Check, Close  } from '@element-plus/icons-vue'
+import { onMounted, computed, ref, onUnmounted} from 'vue'
+import { Plus, Search, Delete, Histogram, Check, Edit, Close, Loading  } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { useMatchStore } from '@/stores/matchStore'
 import { useThemeStore } from '@/stores/themeStore'
@@ -130,19 +197,38 @@ const router     = useRouter()
 const search = ref('')
 
 // Buscar partidos por nombre
-const filteredMatches = computed(() =>
-  matchStore.matches.filter(m =>
-    m.videoName.toLowerCase().includes(search.value.toLowerCase())
-  )
-)
+const filteredMatches = computed(() => {
+  const term = (search.value || '').toLowerCase()
 
-const nombreSinExtension = (nombre) => {
-  const lastDot = nombre.lastIndexOf('.')
-  return lastDot !== -1 ? nombre.substring(0, lastDot) : nombre
+  return matchStore.matches.filter(m => {
+    // m.matchName podría no existir: forzamos fallback a ''
+    const name = (m.matchName || '').toLowerCase()
+    return name.includes(term)
+  })
+})
+
+
+const labels = {
+  top_left:     'Arriba Izq: ',
+  top_right:    'Arriba Der: ',
+  bottom_right: 'Abajo Der: ',
+  bottom_left:  'Abajo Izq: '
 }
 
-// Formatea fechas
-const formatDate = iso => new Date(iso).toLocaleString()
+function onEditMatch(id) {
+  const match = matchStore.matches.find(m => m._id === id)
+  if (!match) {
+    console.warn(`No se encontró partido con id ${id}`)
+    return
+  }
+  matchStore.startEdit(match)
+}
+
+// Dentro de <script setup> o en methods si usas Options API
+function formatDate(dateString) {
+  const d = new Date(dateString);
+  return d.toLocaleDateString(); 
+}
 
 // Carga los partidos al montar
 onMounted(() => {
@@ -243,7 +329,7 @@ h2 {
 
 /* Tabla centrada */
 .el-table {
-  max-width: 960px;
+  max-width: 1100px;
   margin: 0 auto 40px;
   border-radius: 8px;
   overflow: hidden;
@@ -328,4 +414,52 @@ h2 {
   margin-top: 20px;
   margin-bottom: 30px;
 }
+
+
+/* -------------------------------------------------------------------
+   Grid compacto para el collapse de jugadores
+   ------------------------------------------------------------------- */
+.players-collapse-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  padding: 8px 0;
+}
+
+.player-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.player-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--el-text-color-secondary);
+}
+
+.player-name {
+  margin-top: 2px;
+  font-size: 0.95rem;
+  color: var(--el-text-color-primary);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+
+
+/* contorno verde cuando es válido */
+.input-wrapper.valido .el-input__inner {
+  border-color: #67c23a !important;
+  box-shadow: 0 0 0 2px rgba(103, 194, 58, 0.2) !important;
+}
+
+/* contorno rojo cuando es inválido */
+.input-wrapper.invalido .el-input__inner {
+  border-color: #f56c6c !important;
+  box-shadow: 0 0 0 2px rgba(245, 108, 108, 0.2) !important;
+}
+
+
 </style>

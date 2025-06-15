@@ -366,7 +366,7 @@ async function getHeatmapData(matchId) {
     //const num_rows = Math.floor(height_meters / cell_size);
 
   const rows = await queryApi.collectRows(fluxQuery)
-  console.log(rows);
+  //console.log(rows);
   const heatmap = {}
 
   for (const row of rows) {

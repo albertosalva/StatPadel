@@ -5,7 +5,19 @@ const { Schema } = mongoose
 const MatchSchema = new mongoose.Schema({
   owner: {
     type: Schema.Types.ObjectId,
-    ref: 'Users',
+    ref: 'User',
+    required: true,
+  },
+  matchName: {
+    type: String,
+    required: true,
+  },
+  matchDate: {
+    type: Date,
+    required: true,
+  },
+  matchLocation: {
+    type: String,
     required: true,
   },
   videoName: {
@@ -37,7 +49,7 @@ const MatchSchema = new mongoose.Schema({
     type: Map,
     of: {
       type: Schema.Types.ObjectId,
-      ref: 'Users',
+      ref: 'User',
     },
     default: {}
   }

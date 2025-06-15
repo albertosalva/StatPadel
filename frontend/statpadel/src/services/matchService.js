@@ -27,10 +27,16 @@ export default {
   },
 
   // Actualiza solo el nombre de un partido 
-  async updateMatch(matchId, newName) {
+  async updateMatch(matchId, editingForm) {
     const api = getApi()
-    const { data } = await api.put(`/${matchId}`, { videoName: newName })
+    const { data } = await api.put(`/${matchId}`, editingForm)
     return data
+  },
+
+  async updatePlayers(matchId, form) {
+    const api = getApi()
+    const { data } = await api.put(`/${matchId}/players`, form)
+    return data   // espera que devuelva playerPositions actualizado
   },
 
   // Recupera un partido por su ID

@@ -34,11 +34,13 @@ export default {
   // Envía el video para que se realice el análisis.
   async uploadVideo(fileName, payload) {
 
-    const { corners, display_width, display_height } = payload;
-    console.log('[videoService] Payload recibido:', payload);
+    //const { corners, display_width, display_height, players_positions  } = payload;
+    //console.log('[videoService] Payload recibido:', payload);
+    const body = {fileName, ...payload};
 
+    //console.log('[videoService] Cuerpo a enviar al endpoint:', body);
     const api = getApi();
-    const response = await api.post('/upload_video', { fileName, corners, display_width, display_height });
+    const response = await api.post('/upload_video', body);
     return response.data;
   }
 };
