@@ -526,45 +526,31 @@ h2 {
   margin-top: 16px;
 }
 
-/* =============================== */
-/* 1) Ancho unificado de campos    */
-/* =============================== */
-.upload-form .el-input,
-.upload-form .el-date-picker {
-  width: 80%;                 /* mismo ancho relativo al contenedor */
-  max-width: 600px;           /* igual que el uploader */
-  margin: 0 auto 1rem;        /* centrado + separación inferior */
+
+.upload-form {
+  /* El ancho máximo lo pones tú → ajusta el número a tu diseño.            */
+  max-width: 100%;    /* 100 % si quieres que se estire a todo el contenedor */
+  width: 100%;
+  
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;          /* separación vertical entre controles */
+}
+
+.upload-form :deep(.el-input),
+.upload-form :deep(.el-input__wrapper),
+.upload-form :deep(.el-date-editor),
+.upload-form :deep(.el-date-editor .el-input__wrapper) {
+  align-self: center;
+  width: 80%;
   box-sizing: border-box;
 }
 
-/* Ajuste interno de inputs y date-picker */
-.upload-form .el-input__inner,
-.upload-form .el-date-picker .el-input__inner {
-  height: 48px;
-  padding: 10px 14px;
-  font-size: 1rem;
-  border-radius: 6px;
-  color: var(--el-text-color-primary);
-  transition: border-color .3s, box-shadow .3s;
-  background-color: transparent; /* se adapta al tema oscuro/claro */
+/* Coloreado de borde en foco para todos los campos */
+.upload-form :deep(.is-focus .el-input__wrapper) {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 1px var(--el-color-primary);
 }
-
-/* Placeholder con tono secundario */
-.upload-form .el-input__inner::placeholder,
-.upload-form .el-date-picker .el-input__inner::placeholder {
-  color: var(--el-text-color-secondary);
-}
-
-/* =============================== */
-/* 2) Resaltar en rojo errores     */
-/* =============================== */
-/* Cuando el <el-form-item> tenga .is-error */
-.upload-form .el-form-item.is-error .el-input__inner,
-.upload-form .el-form-item.is-error .el-date-editor .el-input__inner {
-  border-color: var(--el-color-danger) !important;
-  box-shadow: 0 0 0 2px rgba(245,108,108,0.2) !important;
-}
-
 
 
 /* Botones de pasos */

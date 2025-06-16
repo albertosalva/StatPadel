@@ -36,7 +36,7 @@
     <!-- Mapa de calor -->
     <el-main class="heatmap-area">
       <div class="heatmap-container">
-        <canvas ref="canvasRef"></canvas>
+        <canvas ref="canvasRef" class="heatmap-canvas"></canvas>
       </div>
     </el-main>
   </el-container>
@@ -54,10 +54,13 @@ defineProps({
   matchId: String
 })
 
-Chart.register(...registerables, MatrixController, MatrixElement)
-Chart.register({
+
+const padelCourtLines = {
   id: 'padelCourtLines',
   beforeDraw(chart) {
+    const enabled = chart.config.options.plugins?.padelCourtLines?.enabled
+    if (!enabled) return
+
     const { ctx, chartArea } = chart
     const { left, top, width, height } = chartArea
 
@@ -100,8 +103,8 @@ Chart.register({
 
     ctx.restore()
   }
-})
-
+}
+Chart.register(...registerables, MatrixController, MatrixElement, padelCourtLines)
 
 const route = useRoute()
 const matchId = route.params.id
@@ -239,7 +242,7 @@ function renderHeatmap() {
             label: ctx => `Recuento: ${ctx.raw.v}`
           }
         },
-        padelCourtLines: {}
+        padelCourtLines: { enabled: true }
       }
     }
   })
@@ -270,47 +273,64 @@ onMounted(async () => {
 
 <style scoped>
 .heatmap-wrapper {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
+  display: flex; flex-direction: column;
   padding: 16px;
   box-sizing: border-box;
 }
 
-.players-row {
-  margin: 10px 0 20px;
-}
-
-.player-col {
-  display: flex;
-  align-items: center;
-}
+.players-row { margin: 10px 0 20px }
+.player-col { display: flex; align-items: center }
 
 .heatmap-area {
-  flex: 1;
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 80vh;
+  height: auto;
   max-height: 80vh;
-  overflow: hidden;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden; 
 }
 
-/* contenedor que impone proporción 1:2 */
 .heatmap-container {
+  position: relative;
   aspect-ratio: 1 / 2;
-  height: 100%;
-  width: auto;
-  max-height: 100%;
-  max-width: 100%;
+  width: 100%;
+  max-width: calc(80vh / 2);
+  height: auto;
+  max-height: 80vh;
+  overflow: hidden; 
 }
 
-/* el canvas se adapta al contenedor */
-canvas {
-  width: 100% !important;
-  height: 100% !important;
-  display: block;
+/* Canvas de fondo (pista) */
+.court-canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 0;
 }
+
+/* Contenedor del heatmap.js sobre la pista */
+.heatmap-court {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 1;
+}
+
+
+@media (max-aspect-ratio: 1/2) {
+  .heatmap-area{
+    height:auto;            /* deja de forzar 80 vh                */
+    flex:0 0 auto;
+    align-items:flex-start; /* elimina el “hueco” arriba/abajo     */
+  }
+
+  .heatmap-container{
+    max-width:none;         /* ya no la limitamos en ancho         */
+    max-height:none;        /* permite que el alto se auto-ajuste  */
+  }
+}
+
+
 </style>
-
-

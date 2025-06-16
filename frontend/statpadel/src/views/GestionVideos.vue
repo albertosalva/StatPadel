@@ -65,57 +65,57 @@
       </el-table-column>
 
       <!-- Jugadores asignados -->
-<el-table-column label="Jugadores">
-  <template #default="{ row }">
-    <!-- lectura -->
-    <div v-if="matchStore.editingId !== row._id">
-      <el-collapse accordion expand-icon-position="left">
-        <el-collapse-item title="Mostrar jugadores" name="players">
-          <div class="players-list">
-            <div class="player-row" v-for="(label, key) in labels" :key="key">
-              <span class="player-label">{{ label }}:</span>
-              <span class="player-name">
-                {{
-                  (
-                    (row.playerPositions && row.playerPositions[key]) || {}
-                  ).username || 'Sin asignar'
-                }}
-              </span>
-            </div>
+      <el-table-column label="Jugadores">
+        <template #default="{ row }">
+          <!-- lectura -->
+          <div v-if="matchStore.editingId !== row._id">
+            <el-collapse accordion expand-icon-position="left">
+              <el-collapse-item title="Mostrar jugadores" name="players">
+                <div class="players-list">
+                  <div class="player-row" v-for="(label, key) in labels" :key="key">
+                    <span class="player-label">{{ label }}:</span>
+                    <span class="player-name">
+                      {{
+                        (
+                          (row.playerPositions && row.playerPositions[key]) || {}
+                        ).username || 'Sin asignar'
+                      }}
+                    </span>
+                  </div>
+                </div>
+              </el-collapse-item>
+            </el-collapse>
           </div>
-        </el-collapse-item>
-      </el-collapse>
-    </div>
 
-    <!-- edición -->
-    <div v-else>
-      <el-row :gutter="12">
-        <el-col
-          v-for="(label, key) in labels"
-          :key="key"
-          :xs="24" :sm="12" :md="6"
-        >
-          <el-form-item :prop="`playerPositions.${key}`">
-            <div class="input-wrapper"
-                 :class="{
-                   valido:   matchStore.editingPlayersValid[key] === true,
-                   invalido: matchStore.editingPlayersValid[key] === false
-                 }"
-            >
-              <el-input
-                v-model="matchStore.editingPlayersForm[key]"
-                size="small"
-                clearable
-                :placeholder="label"
-                @blur="() => matchStore.verificarJugadorEditado(matchStore.editingPlayersForm[key], key)"
-              />
-            </div>
-          </el-form-item>
-        </el-col>
-      </el-row>
-    </div>
-  </template>
-</el-table-column>
+          <!-- edición -->
+          <div v-else>
+            <el-row :gutter="12">
+              <el-col
+                v-for="(label, key) in labels"
+                :key="key"
+                :xs="24" :sm="12" :md="6"
+              >
+                <el-form-item :prop="`playerPositions.${key}`">
+                  <div class="input-wrapper"
+                      :class="{
+                        valido:   matchStore.editingPlayersValid[key] === true,
+                        invalido: matchStore.editingPlayersValid[key] === false
+                      }"
+                  >
+                    <el-input
+                      v-model="matchStore.editingPlayersForm[key]"
+                      size="small"
+                      clearable
+                      :placeholder="label"
+                      @blur="() => matchStore.verificarJugadorEditado(matchStore.editingPlayersForm[key], key)"
+                    />
+                  </div>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </div>
+        </template>
+      </el-table-column>
 
       <!-- Estado del vídeo -->
       <el-table-column label="Estado" prop="status">
@@ -139,8 +139,10 @@
               <el-button type="danger" circle :icon="Close" @click="matchStore.cancelEdit()" />
             </template >
             <template v-else>
-              <el-button type="primary" circle  :icon="Edit" @click="onEditMatch(row._id)" />
-              <el-button type="danger" circle  :icon="Delete" @click="confirmarEliminacion(row._id)"/>
+              <el-button type="primary" circle  :icon="Edit" @click="onEditMatch(row._id)" 
+                :disabled="row.owner !== userId"/>
+              <el-button type="danger" circle  :icon="Delete" @click="confirmarEliminacion(row._id)"
+                :disabled="row.owner !== userId"/>
               
               <el-button type="success" circle  :icon="Histogram" @click="onStats(row._id)" 
                 :disabled="row.status !== 'analizado'">
@@ -176,11 +178,12 @@
 <script setup>
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
-import { onMounted, computed, ref, onUnmounted} from 'vue'
+import { onMounted, computed, ref, onUnmounted, watch} from 'vue'
 import { Plus, Search, Delete, Histogram, Check, Edit, Close, Loading  } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { useMatchStore } from '@/stores/matchStore'
 import { useThemeStore } from '@/stores/themeStore'
+import { useAuthStore } from '@/stores/authStore'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const themeStore = useThemeStore()
@@ -192,7 +195,19 @@ onMounted(() => {
 const isDark = computed(() => themeStore.isDark)
 
 const matchStore = useMatchStore()
-const router     = useRouter()
+const router = useRouter()
+
+const authStore = useAuthStore()
+const userId = computed(() => authStore.userId)
+
+watch(
+  () => matchStore.matches,
+  (list) => {
+    console.log('userId:', userId.value)
+    console.log('matches:', list)
+  },
+  { immediate: true }
+)
 
 const search = ref('')
 
@@ -207,12 +222,19 @@ const filteredMatches = computed(() => {
   })
 })
 
+// Paginación de partidos
+const paginatedMatches = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  const end = start + pageSize
+  return filteredMatches.value.slice(start, end)
+})
+
 
 const labels = {
   top_left:     'Arriba Izq: ',
   top_right:    'Arriba Der: ',
-  bottom_right: 'Abajo Der: ',
-  bottom_left:  'Abajo Izq: '
+  bottom_left:  'Abajo Izq: ',
+  bottom_right: 'Abajo Der: '
 }
 
 function onEditMatch(id) {
@@ -258,11 +280,7 @@ onUnmounted(() => {
 const currentPage = ref(1)
 const pageSize = 10
 
-const paginatedMatches = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  const end = start + pageSize
-  return filteredMatches.value.slice(start, end)
-})
+
 
 const confirmarEliminacion = async (id) => {
   try {

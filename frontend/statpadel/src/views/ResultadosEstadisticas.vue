@@ -2,7 +2,7 @@
   <el-container class="estadisticas-container">
     <AppHeader/>
 
-    <el-main>
+    <el-main style="padding: 0 10vw">
       <h2>Estadísticas del partido</h2>
 
       <div v-if="loading">
@@ -18,13 +18,12 @@
       </div>
 
       <div v-else>
-        <el-row :gutter="20">
-          <!-- Vídeo -->
-          <el-col :xs="24" :md="8">
+      <el-row :gutter="20" class="estadisticas-layout">
+        <!-- Columna izquierda -->
+        <el-col :xs="24" :md="16" class="estadisticas-col">
+          <div class="estadisticas-col-inner">
             <el-card shadow="hover">
-              <template #header>
-                <span>Vídeo del partido</span>
-              </template>
+              <template #header>🎥 Vídeo</template>
               <video
                 v-if="videoUrl"
                 controls
@@ -32,42 +31,43 @@
                 :src="videoUrl"
               />
             </el-card>
-          </el-col>
 
+            <el-card shadow="hover" class="expand-card">
+              <template #header>👥 Comparador</template>
+              <ComparadorJugadores v-if="playerStats" :players="playerStats"/>
+            </el-card>
+          </div>
+        </el-col>
 
-
-          <!-- Mapa de calor -->
-          <el-col :xs="24" :md="6">
+        <!-- Columna derecha -->
+        <el-col :xs="24" :md="8" class="estadisticas-col">
+          <div class="estadisticas-col-inner">
             <el-card shadow="hover">
-              <template #header>
-                <span>Mapa de calor</span>
-              </template>
+              <template #header>🔥 Mapa de calor</template>
               <HeatMap :match-id="matchId"/>
             </el-card>
-          </el-col>
-        </el-row>
 
-          <!-- Bola -->
-          <el-col :xs="24" :md="2">
-            <el-card shadow="hover">
-              <template #header>
-                <span>Estadísticas de la Bola</span>
-              </template>
-              <BallStatsChart v-if="match?.analysis?.ball" :stats="match.analysis.ball" />
+            <el-card shadow="hover" class="expand-card">
+              <template #header>🎾 Estadísticas de bola</template>
+              <BallStatsChart v-if="ballStats" :stats="ballStats"/>
             </el-card>
-          </el-col>        
+          </div>
+        </el-col>
+      </el-row>
 
-        <!-- Jugadores -->
-        <el-row :gutter="20" style="margin-top: 20px">
+        <!-- Fila completa abajo: Otras estadísticas -->
+        <el-row style="margin-top: 20px">
           <el-col :span="24">
             <el-card shadow="hover">
-              <template #header>
-                <span>Estadísticas de los jugadores</span>
-              </template>
-              <JugadoresEstadisticas v-if="match?.analysis?.players" :players="match.analysis.players" />
+              <template #header>📊 Otras estadísticas</template>
+              <JugadoresEstadisticas v-if="playerStats" :players="playerStats" />
             </el-card>
           </el-col>
         </el-row>
+
+
+
+        
       </div>
     </el-main>
 
@@ -84,6 +84,7 @@ import AppFooter from '@/components/AppFooter.vue'
 import BallStatsChart from '@/components/BolaEstadisticas.vue'
 import JugadoresEstadisticas from '@/components/JugadoresEstadisticas.vue'
 import HeatMap from '@/components/HeatMap.vue'
+import ComparadorJugadores from '@/components/ComparadorJugadores.vue'
 
 
 import { onMounted, ref, computed} from 'vue'
@@ -114,10 +115,86 @@ const videoUrl = computed(() => {
   return url
 })
 
+// 📊 Estadísticas de la bola (formato esperado por <BolaEstadisticas>)
+const ballStats = computed(() => {
+  const analysis = match.value?.analysis
+  if (!analysis?.distances?.ball || !analysis?.avgSpeeds?.ball || !analysis?.maxSpeeds?.ball) {
+    return null
+  }
+  return {
+    total_distance: analysis.distances.ball,
+    average_speed: analysis.avgSpeeds.ball,
+    max_speed: analysis.maxSpeeds.ball
+  }
+})
+
+
+const playerStats = computed(() => {
+  const analysis = match.value?.analysis
+  const playerInfo = match.value?.playerPositions || {}
+  
+  if (!analysis?.distances || !analysis?.avgSpeeds || !analysis?.maxSpeeds) return null
+
+  // Solo incluir jugadores comunes a los tres conjuntos
+  const jugadores = Object.keys(analysis.distances).filter(id =>
+    id !== 'ball' &&
+    analysis.avgSpeeds[id] !== undefined &&
+    analysis.maxSpeeds[id] !== undefined
+  )
+
+  const stats = {}
+  for (const id of jugadores) {
+    stats[id] = {
+      name: playerInfo[id]?.name || id,
+      total_distance: analysis.distances[id],
+      average_speed: analysis.avgSpeeds[id],
+      max_speed: analysis.maxSpeeds[id]
+    }
+  }
+
+  console.log('Player Stats:', stats)
+  return stats
+})
 
 </script>
 
 <style scoped>
+
+.estadisticas-layout {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.estadisticas-col {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.estadisticas-col-inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%;
+  flex: 1;
+}
+
+/* Solo aplicar altura igualada en escritorio */
+@media (min-width: 768px) {
+  .estadisticas-col-inner {
+    height: 100%;
+  }
+}
+
+.expand-card {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .estadisticas-container {
   display: flex;
   flex-direction: column;
@@ -144,8 +221,10 @@ h2 {
 /* ======================== */
 .el-card {
   border-radius: 12px;
+  flex:0 0 auto;
   transition: box-shadow 0.3s ease;
 }
+
 
 .el-card:hover {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
@@ -195,6 +274,10 @@ h2 {
   video {
     max-height: 250px;
   }
+}
+
+:deep(.heatmap-card .el-card__body){
+  padding:0;
 }
 
 /* ======================== */

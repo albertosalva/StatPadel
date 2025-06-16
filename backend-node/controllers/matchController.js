@@ -18,23 +18,32 @@ const influxClient = new InfluxDB({ url: influxUrl, token: influxToken });
 // Crear instancia de DeleteAPI
 const deleteApi = new DeleteAPI(influxClient);
 
-// Esta de devolver todos los partidos de un usuario
+// Obtiene los partidos del usuario autenticado
 exports.getMyMatches = async (req, res) => {
-  try {
-    const ownerId = req.user.id
-    const partidos = await Match.find({ owner: ownerId })
-    // Escogemos sólo los campos que queremos devolver
-    .select('matchName matchDate matchLocation status playerPositions')
-    // Poblar sólo las esquinas en playerPositions con username
-    .populate('playerPositions.top_left',     'username')
-    .populate('playerPositions.top_right',    'username')
-    .populate('playerPositions.bottom_right', 'username')
-    .populate('playerPositions.bottom_left',  'username')
-    .sort({ uploadDate: -1 })
-    .lean()
-    console.log('Partidos encontrados:', partidos)
-    return res.json(partidos)
-  } catch (err) {
+  try{
+    const userId = req.user.id
+
+    const partidos = await Match.find({
+      $or: [
+        { owner: userId },
+        { 'playerPositions.top_left': userId },
+        { 'playerPositions.top_right': userId },
+        { 'playerPositions.bottom_right': userId },
+        { 'playerPositions.bottom_left': userId }
+      ]
+    })
+      .select('matchName matchDate matchLocation status playerPositions owner')
+      .populate('playerPositions.top_left', 'username')
+      .populate('playerPositions.top_right', 'username')
+      .populate('playerPositions.bottom_right', 'username')
+      .populate('playerPositions.bottom_left', 'username')
+      .sort({ uploadDate: -1 })
+      .lean()
+    
+      console.log('Partidos encontrados:', partidos)
+      return res.json(partidos)
+  }
+  catch (err) {
     console.error('Error en getMyMatches:', err)
     return res.status(500).json({ error: err.message })
   }
@@ -137,7 +146,7 @@ exports.getMatchById = async (req, res) => {
     //Obtener nombres de usuarios en playerPositions
     const positions = match.playerPositions || {};
     const userIds = Object.values(positions).filter(Boolean);
-    const users = await Usuario.find({ _id: { $in: userIds } }).lean();
+    const users = await User.find({ _id: { $in: userIds } }).lean();
     const userMap = Object.fromEntries(users.map(u => [u._id.toString(), u.username]));
 
     // Crear nuevo objeto con nombres
