@@ -1,90 +1,164 @@
 <template>
-  <!-- Ponemos clase “principal-container” en el <el-container> -->
   <el-container class="principal-container">
     <!-- Header global -->
     <AppHeader />
 
-    <!-- Main con título, subtítulo y dos tarjetas -->
     <el-main class="dashboard-main">
-
+      <!-- Cabecera pequeña -->
       <div class="dashboard-header">
-        <div class="welcome-block">
-          <h2 class="welcome-title">¡Bienvenido, {{ username }}!</h2>
+        <div class="header-left">
+          <h2 class="welcome-title">¡Hola, {{ username }}!</h2>
+          <p class="dashboard-subtitle">Analiza tus partidos y mejora tu juego.</p>
         </div>
-        <h1 class="dashboard-title">StatPadel</h1>
-        <p class="dashboard-subtitle">
-          Tu plataforma para gestionar y analizar vídeos deportivos en un solo lugar.
-        </p>
       </div>
 
-      <!-- Dos columnas con tarjetas -->
-      <el-row :gutter="24" class="dashboard-cards">
-        <!-- Columna 1: Subir/Analizar Vídeo -->
-        <el-col :span="24" :md="12">
-          <el-card shadow="hover" class="dashboard-card">
-            <div class="card-content">
-              <el-icon size="48"><VideoCamera /></el-icon>
-              <h3 class="card-title">Sube y analiza vídeos</h3>
-              <p class="card-desc">
-                Envía tu vídeo de partido para procesarlo y obtener estadísticas detalladas.
-              </p>
+      <!-- Sección con dos tarjetas arriba -->
+      <el-row :gutter="20" class="card-row">
+        <el-col :xs="24" :md="12">
+          <el-card class="upload-card">
+            <div class="card-header">
+              <h3>🎾 Subir vídeo</h3>
+            </div>
+            <div class="card-body">
+              <p>Sube tu partido para comenzar el análisis.</p>
               <router-link to="/subida-video">
-                <el-button type="primary" :plain="isDark">Subir Vídeo</el-button>
+                <el-button type="primary" :icon="Plus" size="large" :plain="isDark">
+                  Subir vídeo
+                </el-button>
               </router-link>
             </div>
           </el-card>
         </el-col>
 
-        <!-- Columna 2: Lista de Vídeos -->
-        <el-col :span="24" :md="12">
-          <el-card shadow="hover" class="dashboard-card">
-            <div class="card-content">
-              <el-icon size="48"><Files /></el-icon>
-              <h3 class="card-title">Ver lista de vídeos</h3>
-              <p class="card-desc">
-                Accede a todos tus vídeos procesados y revisa sus estadísticas.
-              </p>
-              <router-link to="/gestion-videos">
-                <el-button type="primary" :plain="isDark">Lista de Vídeos</el-button>
-              </router-link>
+        <el-col :xs="24" :md="12">
+          <el-card class="info-card">
+            <div class="card-header">
+              <h3>📊 Información general</h3>
+            </div>
+            <div class="card-body">
+              <p>Total de partidos: {{ matchStore.totalVideos }}</p>
+              <p>Tipo de juego predominante: {{}}</p>
+              <p>Fecha del último partido subido: {{ formattedLatestVideoDate }}</p>
             </div>
           </el-card>
         </el-col>
       </el-row>
+
+      <!-- Últimos partidos -->
+        <el-card class="video-card">
+          <div class="video-header">
+            <h3>🕹️ Últimos partidos</h3>
+          </div>
+          <el-divider />
+
+          <el-table :data="latestMatches" stripe style="width: 100%;" >
+            <!-- Nombre -->
+            <el-table-column prop="matchName" label="Nombre" sortable />
+            <!-- Fecha -->
+            <el-table-column prop="matchDate" label="Fecha" sortable >
+              <template #default="{ row }">
+                {{ formatDate(row.matchDate) }}
+              </template>
+            </el-table-column>
+            <!-- Lugar -->
+            <el-table-column prop="matchLocation" label="Lugar" sortable />
+            <!-- Estado -->
+            <el-table-column prop="status" label="Estado" >
+              <template #default="{ row }">
+                <el-tag :type="row.status === 'analizado' ? 'success' : 'warning'"
+                  effect="light" >
+                  <el-icon>
+                    <component :is="row.status === 'analizado' ? Check : Loading" />
+                  </el-icon>
+                  {{ row.status === 'analizado' ? 'Analizado' : 'Analizando' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="Acciones" class-name="col-acciones">
+              <template #default="{ row }">
+                <el-button
+                  type="success"
+                  circle
+                  :icon="Histogram"
+                  @click="onStats(row._id)"
+                  :disabled="row.status !== 'analizado'"
+                />
+              </template>
+            </el-table-column>
+
+          </el-table>
+
+          <div class="card-footer" style="text-align: right; margin-top: 16px;">
+            <router-link to="/lista-partidos">
+              <el-button type="primary" :icon="Files" size="large" :plain="isDark" >
+                Ver más partidos
+              </el-button>
+            </router-link>
+          </div>
+        </el-card>
+
+      <!-- Estadísticas recientes -->
+      <el-card class="stats-card">
+        <div class="stats-header">
+          <h3>📈 Tus estadísticas en los últimos 4 partidos</h3>
+        </div>
+        <div class="stats-content">
+          <EstadisticasJugador/>
+        </div>
+      </el-card>
     </el-main>
 
-    <AppFooter/>
-
+    <!-- Footer global -->
+    <AppFooter />
   </el-container>
 </template>
 
 <script setup>
 import { onMounted, computed} from 'vue'
-import { Files, VideoCamera } from '@element-plus/icons-vue'
-//import { useRouter } from 'vue-router'
+//import { Files, VideoCamera } from '@element-plus/icons-vue'
+import { Plus, Files, Histogram, Check, Loading } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
 import { useThemeStore } from '@/stores/themeStore'
-
+import { useMatchStore } from '@/stores/matchStore'
+import EstadisticasJugador from '@/components/UltimosPartidosStats.vue'
 
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
+const matchStore = useMatchStore()
+const router = useRouter()
 
 onMounted(() => {
   themeStore.initTheme()
+
+  matchStore.loadGenralStats()
+
+  matchStore.fetchMatches()
 })
 
+const latestMatches = computed(() => matchStore.latestFiveMatches)
 const isDark = computed(() => themeStore.isDark)
 
 // Computed para nombre de usuario
 const username = computed(() => authStore.getUsername)
 
+function formatDate(dateString) {
+  const d = new Date(dateString)
+  return d.toLocaleDateString()
+}
+
+const formattedLatestVideoDate = computed(() => {
+  const dateStr = matchStore.latestVideoDate
+  return dateStr ? formatDate(dateStr) : '—'
+})
+
+const onStats = id => {
+  router.push({ name: 'ResultadosEstadisticas', params: { id } })
+}
 </script>
-
-
-
-
 
 <style scoped>
 .principal-container {
@@ -96,101 +170,156 @@ const username = computed(() => authStore.getUsername)
   min-height: 100vh;
 }
 
-/* ========================================= */
-/* ======== ENCABEZADO PRINCIPAL =========== */
-/* ========================================= */
+
 .dashboard-main {
-  padding: 40px;
+  padding: 0 10vw; /* 5% del ancho del viewport en los lados */
+  box-sizing: border-box;
+  align-items: center;
 }
 
 .dashboard-header {
-  text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
 }
 
-.dashboard-title {
-  font-size: 3rem;
-  font-weight: 700;
-  color: var(--el-color-primary);
-  margin: 0;
-}
-
-.dashboard-subtitle {
-  font-size: 1.2rem;
-  color: var(--el-text-color-secondary);
-  margin-top: 12px;
-}
-
-/* ========================================= */
-/* ======== BLOQUE DE BIENVENIDA =========== */
-/* ========================================= */
-.dashboard-header {
-  text-align: center;
-  margin-bottom: 40px;
-}
-
-.welcome-block {
-  margin-bottom: 16px;
+.header-left {
+  flex: 1;
 }
 
 .welcome-title {
-  font-size: 2rem;
-  font-weight: 600;
-  color: var(--el-color-primary);
   margin: 0;
-}
-
-/* ========================================= */
-/* ============ TARJETAS =================== */
-/* ========================================= */
-.dashboard-cards {
-  /* margen top para separar del encabezado */
-  margin-top: 20px;
-}
-
-.dashboard-card {
-  border-radius: 10px;
-  padding: 20px;
-  text-align: center;
-  transition: transform 0.2s;
-}
-
-.dashboard-card:hover {
-  transform: translateY(-4px);
-}
-
-.card-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-
-.card-title {
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   font-weight: 600;
-  color: var(--el-color-primary);
-  margin: 0;
 }
 
-.card-desc {
+.dashboard-subtitle {
+  margin: 4px 0 0;
   font-size: 1rem;
   color: var(--el-text-color-secondary);
-  margin: 0 0 20px 0;
-  line-height: 1.5;
 }
 
-/* Asegura que los botones no ocupen todo el ancho en móvil */
-.card-content .el-button {
-  width: auto;
-  min-width: 140px;
+.card-row {
+  margin-bottom: 24px;
 }
 
-/* Responsive: que cada tarjeta ocupe toda la fila en pantallas muy pequeñas */
-@media (max-width: 768px) {
-  .dashboard-card {
-    margin-bottom: 24px;
-  }
+.upload-card,
+.info-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.upload-card .card-header,
+.info-card .card-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--el-border-color);
+}
+
+.upload-card .card-header h3,
+.info-card .card-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.upload-card .card-body,
+.info-card .card-body {
+  padding: 16px;
+  flex: 1;
+}
+
+.video-card {
+  margin-bottom: 24px;
+}
+
+.video-header {
+  padding: 16px;
+}
+
+.video-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.el-table {
+  margin-top: 0;
+}
+
+.col-acciones {
+  width: 90px;
+  text-align: center;
+}
+
+.card-footer {
+  padding: 16px;
+  text-align: right;
+  background-color: var(--el-background-color);
+}
+
+.stats-card {
+  margin-bottom: 24px;
+}
+
+.stats-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--el-border-color);
+}
+
+.stats-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.stats-content {
+  padding: 16px;
+}
+
+
+/* Cabeceras centradas */
+.upload-card .card-header,
+.info-card .card-header,
+.video-header h3,
+.stats-header h3 {
+  text-align: center;
+}
+
+/* Cuerpos de tarjetas centrados */
+.upload-card .card-body,
+.info-card .card-body,
+.stats-content {
+  text-align: center;
+}
+
+/* Botones en bloque y centrados */
+.el-button {
+  display: block;
+  margin: 12px auto;
+}
+
+/* Tabla de últimos partidos centrada */
+.video-card .el-table {
+  margin: 0 auto;
+}
+
+/* Celdas centradas */
+.video-card .el-table th,
+.video-card .el-table td {
+  text-align: center;
+}
+
+.dashboard-header {
+  margin-top: 3%;
+  display: flex;              /* ya lo era */
+  justify-content: center;    /* centra horizontalmente */
+  text-align: center;         /* asegura que el texto interno quede centrado */
+}
+
+/* Opcional: si quieres asegurar que el bloque no se encoja */
+.header-left {
+  width: 100%;
 }
 
 </style>

@@ -17,6 +17,7 @@ export default {
   async getMyMatches() {
     const api = getApi()
     const { data } = await api.get('/mine')
+    console.log('getMyMatches', data)
     return data
   },
 
@@ -44,5 +45,18 @@ export default {
     const api = getApi()
     const { data } = await api.get(`/${matchId}`)
     return data
+  },
+
+  async fetchGenralStats() {
+    const api = getApi()
+    const { data } = await api.get('/generalStats')
+    return data
+  },
+
+  async getLastMatchesStats() {
+    const api = getApi()
+    const { data } = await api.get('/lastStats')
+    console.log('getLastMatchesStats', data)
+    return data.data
   }
 };

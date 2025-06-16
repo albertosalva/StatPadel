@@ -96,11 +96,11 @@ const radarData = computed(() => {
   const j1 = props.players[selected1.value]
   const j2 = props.players[selected2.value]
 
-  const maxValues = {
-    total_distance: Math.max(j1.total_distance, j2.total_distance),
-    average_speed: Math.max(j1.average_speed, j2.average_speed),
-    max_speed: Math.max(j1.max_speed, j2.max_speed)
-  }
+  //const maxValues = {
+  //  total_distance: Math.max(j1.total_distance, j2.total_distance),
+  //  average_speed: Math.max(j1.average_speed, j2.average_speed),
+  //  max_speed: Math.max(j1.max_speed, j2.max_speed)
+  //}
 
   return {
     labels: ['Distancia', 'Vel. media', 'Vel. máxima'],
@@ -108,9 +108,9 @@ const radarData = computed(() => {
       {
         label: getPlayerLabel(selected1.value),
         data: [
-          normalizar(j1.total_distance, maxValues.total_distance),
-          normalizar(j1.average_speed, maxValues.average_speed),
-          normalizar(j1.max_speed, maxValues.max_speed)
+          normalizar(j1.total_distance, maximosCalculados.value.total_distance),
+          normalizar(j1.average_speed, maximosCalculados.value.average_speed),
+          normalizar(j1.max_speed, maximosCalculados.value.max_speed)
         ],
         backgroundColor: 'rgba(255, 99, 132, 0.2)',
         borderColor: 'rgba(255, 99, 132, 1)',
@@ -119,9 +119,9 @@ const radarData = computed(() => {
       {
         label: getPlayerLabel(selected2.value),
         data: [
-          normalizar(j2.total_distance, maxValues.total_distance),
-          normalizar(j2.average_speed, maxValues.average_speed),
-          normalizar(j2.max_speed, maxValues.max_speed)
+          normalizar(j2.total_distance, maximosCalculados.value.total_distance),
+          normalizar(j2.average_speed, maximosCalculados.value.average_speed),
+          normalizar(j2.max_speed, maximosCalculados.value.max_speed)
         ],
         backgroundColor: 'rgba(54, 162, 235, 0.2)',
         borderColor: 'rgba(54, 162, 235, 1)',
@@ -134,6 +134,16 @@ const radarData = computed(() => {
 function normalizar(val, max) {
   return val / max
 }
+
+const maximosCalculados = computed(() => {
+  const jugadores = Object.values(props.players)
+
+  return {
+    total_distance: Math.max(...jugadores.map(p => p.total_distance || 0)),
+    average_speed: Math.max(...jugadores.map(p => p.average_speed || 0)),
+    max_speed: Math.max(...jugadores.map(p => p.max_speed || 0))
+  }
+})
 
 const radarOptions = computed(() => {
   const { textColor, gridColor } = cssVars.value
@@ -152,13 +162,39 @@ const radarOptions = computed(() => {
         display: true,
         text: 'Comparativa de jugadores',
         color: textColor
-      }
+      },
+      tooltip: {
+				callbacks: {
+					label: ctx => {
+						const label = ctx.dataset.label || ''
+						const valorNormalizado = ctx.raw
+						const index = ctx.dataIndex
+
+						const metricaKeyMap = ['total_distance', 'average_speed', 'max_speed']
+						const metrica = metricaKeyMap[index]
+
+						const valorReal = (
+							valorNormalizado * maximosCalculados.value[metrica]
+						).toFixed(2)
+
+						const unidades = {
+							total_distance: 'm',
+							average_speed: 'm/s',
+							max_speed: 'm/s'
+						}
+
+						return `${label}: ${valorReal} ${unidades[metrica]}`
+					}
+				}
+			}
     },
     scales: {
       r: {
+        min: 0,
+        max: 1,
         angleLines: { color: gridColor },
         grid: { color: gridColor },
-        pointLabels: { color: textColor },
+        pointLabels: { color: textColor, font: { size: 12 } },
         ticks: { display: false }
       }
     }

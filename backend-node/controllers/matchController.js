@@ -217,3 +217,84 @@ exports.updatePlayers = async (req, res) => {
   return res.json({ playerPositions: match.playerPositions })
 }
 
+
+// Obtiene estadísticas generales del usuario
+exports.getGeneralStats = async (req, res) => {
+  try {
+    const userId = req.user.id
+
+    // 1) Filtro: todos los partidos donde el usuario participa
+    const userFilter = { owner: userId }
+
+    // 2) Total de vídeos/partidos
+    const totalVideos = await Match.countDocuments(userFilter)
+
+    // 4) Fecha del último vídeo subido (por uploadDate)
+    const last = await Match.findOne(userFilter)
+      .sort({ uploadDate: -1 })
+      .select('uploadDate')
+      .lean()
+
+    const latestVideoDate = last
+      ? last.uploadDate.toISOString().split('T')[0]
+      : null
+
+    // 5) Devolvemos JSON
+    return res.json({ totalVideos, latestVideoDate })
+  } catch (err) {
+    console.error('Error en getGeneralStats:', err)
+    return res.status(500).json({ error: err.message })
+  }
+}
+
+exports.getLastMatchesUserStats = async (req, res) => {
+  try {
+    const userId = req.user.id
+    const limit  = 4  // siempre últimos 4
+
+    // 1) Filtro: solo partidos donde el usuario aparece en playerPositions
+    const userFilter = {
+      $or: [
+        { 'playerPositions.top_left':     userId },
+        { 'playerPositions.top_right':    userId },
+        { 'playerPositions.bottom_left':  userId },
+        { 'playerPositions.bottom_right': userId }
+      ]
+    }
+
+    // 2) Trae los últimos N
+    const matches = await Match.find(userFilter)
+      .sort({ uploadDate: -1 })
+      .limit(limit)
+      .select('_id matchName matchDate matchLocation analysis playerPositions')
+      .lean()
+
+    // 3) Extrae solo las métricas de la posición correspondiente
+    const results = matches.map(m => {
+      // ¿En qué posición está el usuario?
+      const entry = Object.entries(m.playerPositions)
+        .find(([_, pid]) => pid && pid.toString() === userId.toString())
+      const pos = entry ? entry[0] : null
+
+      const stats = {}
+      if (pos && m.analysis) {
+        stats.distance = m.analysis.distances?.[pos] ?? null
+        stats.avgSpeed = m.analysis.avgSpeeds?.[pos] ?? null
+        stats.maxSpeed = m.analysis.maxSpeeds?.[pos] ?? null
+      }
+
+      return {
+        matchId:       m._id,
+        matchName:     m.matchName,
+        matchDate:     m.matchDate.toISOString().split('T')[0],
+        matchLocation: m.matchLocation,
+        stats
+      }
+    })
+
+    return res.json({ data: results })
+  } catch (err) {
+    console.error('Error en getLastMatchesUserStats:', err)
+    return res.status(500).json({ error: err.message })
+  }
+}

@@ -59,7 +59,7 @@
         <el-row style="margin-top: 20px">
           <el-col :span="24">
             <el-card shadow="hover">
-              <template #header>📊 Otras estadísticas</template>
+              <template #header>📊 Estadísticas de los jugadores</template>
               <JugadoresEstadisticas v-if="playerStats" :players="playerStats" />
             </el-card>
           </el-col>

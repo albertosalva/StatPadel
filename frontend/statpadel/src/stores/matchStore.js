@@ -10,8 +10,15 @@ export const useMatchStore = defineStore('match', {
     editingId: null,
     editingForm: { matchName: '', matchDate: null, matchLocation: ''},
     editingPlayersForm: { top_left: '', top_right: '', bottom_right: '', bottom_left: '' },
-    editingPlayersValid: { top_left: null, top_right: null, bottom_right: null,bottom_left: null}
+    editingPlayersValid: { top_left: null, top_right: null, bottom_right: null,bottom_left: null},
+    totalMatchs: 0,
+    predominantGameType: '',
+    latestMatchDate: '',
+    lastMatchesStats: []
   }),
+  getters: {
+    latestFiveMatches: (state) => state.matches.slice(0, 5)
+  },
   actions: {
     async fetchMatches() {
       this.loading = true
@@ -97,6 +104,21 @@ export const useMatchStore = defineStore('match', {
         import('element-plus').then(({ ElMessage }) =>
           ElMessage.error('Error comprobando el jugador.')
         );
+      }
+    },
+    async loadGenralStats() {
+      const stats = await matchService.fetchGenralStats()
+      this.totalVideos = stats.totalVideos
+      this.predominantGameType = stats.predominantGameType
+      this.latestVideoDate = stats.latestVideoDate
+    },
+    async loadLastMatchesStats() {
+      try {
+        const statsArray = await matchService.getLastMatchesStats()
+        this.lastMatchesStats = statsArray
+        console.log('Últimas stats cargadas:', this.lastMatchesStats)
+      } catch (err) {
+        console.error('No se pudieron cargar últimas stats:', err)
       }
     }
     

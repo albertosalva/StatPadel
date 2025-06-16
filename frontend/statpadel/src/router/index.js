@@ -15,11 +15,9 @@ const routes = [
   { path: '/login', name: 'Login', component: () => import('../views/LoginView.vue'), meta: { requiresAuth: false } },
   { path: '/principal', name: 'Principal', component: () => import('../views/PrincipalView.vue'), meta: { requiresAuth: true } },
   { path: '/subida-video', name: 'SubidaVideo', component: () => import('../views/SubidaVideo.vue'), meta: { requiresAuth: true } },
-  { path: '/procesamiento-video', name: 'ProcesamientoVideo', component: () => import('../views/ProcesamientoVideo.vue'), meta: { requiresAuth: true } },
   { path: '/resultados-estadisticas/:id', name: 'ResultadosEstadisticas', component: () => import('../views/ResultadosEstadisticas.vue'), meta: { requiresAuth: true }, props: true },
-  { path: '/gestion-videos', name: 'GestionVideos', component: () => import('../views/GestionVideos.vue'), meta: { requiresAuth: true } },
+  { path: '/lista-partidos', name: 'GestionVideos', component: () => import('../views/GestionVideos.vue'), meta: { requiresAuth: true } },
   { path: '/configuracion-perfil', name: 'ConfiguracionPerfil', component: () => import('../views/ConfiguracionPerfil.vue'), meta: { requiresAuth: true } },
-  { path: '/ayuda', name: 'Ayuda', component: () => import('../views/Ayuda.vue'), meta: { requiresAuth: false } },
 ];
 
 const router = createRouter({

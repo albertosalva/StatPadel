@@ -4,6 +4,9 @@ const router        = express.Router()
 const { checkAuth } = require('../middleware/auth')
 const matchController      = require('../controllers/matchController')
 
+router.get('/generalStats', checkAuth, matchController.getGeneralStats)
+
+router.get('/lastStats', checkAuth, matchController.getLastMatchesUserStats)
 
 router.get('/mine', checkAuth, matchController .getMyMatches)
 
@@ -14,5 +17,6 @@ router.put('/:id', checkAuth, matchController .updateMatch)
 router.get('/:id', checkAuth, matchController .getMatchById)
 
 router.put('/:id/players', checkAuth, matchController.updatePlayers)
+
 
 module.exports = router
