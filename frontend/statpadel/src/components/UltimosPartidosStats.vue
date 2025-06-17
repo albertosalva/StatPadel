@@ -22,7 +22,6 @@ import { onMounted, computed } from 'vue'
 import { Chart, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale } from 'chart.js'
 import { Bar } from 'vue-chartjs'
 import { useMatchStore } from '@/stores/matchStore'
-import { storeToRefs } from 'pinia'
 import { useThemeStore } from '@/stores/themeStore'
 
 // 1) Registrar componentes de Chart.js
@@ -30,7 +29,7 @@ Chart.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 
 // 2) Store y estado reactivo
 const matchStore = useMatchStore()
-const { lastMatchesStats } = storeToRefs(matchStore)
+const lastMatchesStats = computed(() => matchStore.lastMatchesStats)
 
 // 3) Tema para colores dinámicos
 const themeStore = useThemeStore()

@@ -65,13 +65,13 @@ async function saveAnalysisToInflux(data, matchId) {
     }
 
     // ───── FLUSH Y CIERRE ────────────────────────
-    console.log(`🔄 Forzando flush sincrónico...`);
+    //console.log(`🔄 Forzando flush sincrónico...`);
     await writeApi.flush();
-    console.log(`✅ Flush completado`);
+    //console.log(`✅ Flush completado`);
 
-    console.log(`🔄 Cerrando writeApi y enviando ${totalPoints} puntos a InfluxDB…`);
+    //console.log(`🔄 Cerrando writeApi y enviando ${totalPoints} puntos a InfluxDB…`);
     await writeApi.close();
-    console.log(`✅ Todos los puntos de match ${matchId} guardados correctamente en InfluxDB.`);
+    //console.log(`✅ Todos los puntos de match ${matchId} guardados correctamente en InfluxDB.`);
 
     return totalPoints;
 
@@ -101,10 +101,10 @@ async function waitForInfluxData(matchId, expectedPoints, maxRetries = 100, dela
         totalRecords += row._value;
       }
 
-      console.log(`↩️ Intento ${i + 1}/${maxRetries}: ${totalRecords} registros`);
+      //console.log(`↩️ Intento ${i + 1}/${maxRetries}: ${totalRecords} registros`);
 
       if (totalRecords >= expectedPoints) {
-        console.log(`✅ Datos disponibles (${totalRecords} registros)`);
+        //console.log(`✅ Datos disponibles (${totalRecords} registros)`);
         return;
       }
     } catch (err) {
@@ -342,7 +342,7 @@ async function getMaxSpeed(matchId) {
     ball:    maxSpeedBall
   }
 
-  console.log(`Velocidades máximas medias por segundo en el partido ${matchId}:`, result)
+  //console.log(`Velocidades máximas medias por segundo en el partido ${matchId}:`, result)
   return result
 }
 

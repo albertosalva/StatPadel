@@ -36,8 +36,10 @@ exports.login = async (req, res) => {
     )
 
     const userId = user._id.toString(); // Convertir a string si es necesario
+    const email  = user.email;
+    console.log('Usuario autenticado:', email, userId);
     
-    return res.json({ token: token, username: user.username , userId: userId});
+    return res.json({ token: token, username: user.username , email: email, userId: userId});
     
   } catch (err) {
     console.error('Error en el login:', err);

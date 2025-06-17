@@ -4,6 +4,7 @@ const User = require('../models/Users');
 const mongoose = require('mongoose');
 const path = require('path');
 const fs = require('fs').promises;
+const { deleteMatchById } = require('../services/matchServices');
 
 const { InfluxDB} = require('@influxdata/influxdb-client');
 const { DeleteAPI } = require('@influxdata/influxdb-client-apis');
@@ -16,7 +17,7 @@ const influxBucket = process.env.INFLUX_BUCKET;
 // Crear cliente de InfluxDB
 const influxClient = new InfluxDB({ url: influxUrl, token: influxToken });
 // Crear instancia de DeleteAPI
-const deleteApi = new DeleteAPI(influxClient);
+//const deleteApi = new DeleteAPI(influxClient);
 
 // Obtiene los partidos del usuario autenticado
 exports.getMyMatches = async (req, res) => {
@@ -40,7 +41,7 @@ exports.getMyMatches = async (req, res) => {
       .sort({ uploadDate: -1 })
       .lean()
     
-      console.log('Partidos encontrados:', partidos)
+      //console.log('Partidos encontrados:', partidos)
       return res.json(partidos)
   }
   catch (err) {
@@ -49,49 +50,14 @@ exports.getMyMatches = async (req, res) => {
   }
 }
 
-// Eliminar un partido específico
 exports.deleteMatch = async (req, res) => {
-    try {
-      const ownerId = req.user.id;
-      const matchId = req.params.id;
-
-      // 1) Validar existencia y permiso
-      const match = await Match.findOne({ _id: matchId, owner: ownerId })
-      if (!match) {
-        return res.status(404).json({ error: 'Partido no encontrado o no autorizado' })
-      }
-
-      // 2) Eliminar datos en InfluxDB
-      await deleteApi.postDelete({
-        org: influxOrg,
-        bucket: influxBucket,
-        body: {
-          start: '1970-01-01T00:00:00Z',
-          stop:  new Date().toISOString(),
-          predicate: `partido_id="${matchId}"`
-        }
-      });
-      console.log(`InfluxDB: datos borrados para partido_id=${matchId}`)
-
-      // 3) Borrar fichero de vídeo en disco (si existe)
-      if (match.filePath) {
-        try {
-          await fs.unlink(match.filePath)
-          console.log(`Fichero eliminado: ${match.filePath}`)
-        } catch (errFs) {
-          console.warn(`No se pudo eliminar fichero ${match.filePath}:`, errFs.message)
-        }
-      }
-
-      // 4) Eliminar documento de MongoDB
-      await Match.deleteOne({ _id: matchId, owner: ownerId })
-      console.log(`MongoDB: documento borrado para matchId=${matchId}`)
-
-      return res.json({ message: 'Partido y datos asociados eliminados correctamente' })
-    } catch (err) {
-      console.error('Error en deleteMatch:', err)
-      return res.status(500).json({ error: err.message })
-    }
+  try {
+    await deleteMatchById(req.params.id, req.user.id)
+    return res.json({ message: 'Partido y datos asociados eliminados correctamente' })
+  } catch (err) {
+    const status = err.status || 500
+    return res.status(status).json({ error: err.message })
+  }
 }
 
 //Edita el nombre del video de un partido específico
@@ -115,7 +81,7 @@ exports.updateMatch = async (req, res) => {
         { new: true }
       )
 
-      console.log('Partido actualizado:', match)
+      //console.log('Partido actualizado:', match)
   
       if (!match) {
         return res.status(404).json({ error: 'Partido no encontrado o no autorizado' })
@@ -165,7 +131,7 @@ exports.getMatchById = async (req, res) => {
     // Reemplazar playerPositions por versión enriquecida
     match.playerPositions = resolvedPositions;
 
-    console.log('Match encontrado:', match)
+    //console.log('Match encontrado:', match)
     return res.json(match);
   } catch (err) {
     console.error('Error en getMatchById:', err)

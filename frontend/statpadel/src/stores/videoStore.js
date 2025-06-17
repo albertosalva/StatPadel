@@ -11,7 +11,7 @@ export const useVideoStore = defineStore('video', {
     matchId: null,
     file: null,
     fileName: null,
-    frameImage: "data:image/jpeg;base64,...",  // Imagen de placeholder inicial
+    frameImage: null,  // Imagen de placeholder inicial
     //frameImg: null,
     displayWidth: 0,
     displayHeight: 0,
@@ -114,6 +114,7 @@ export const useVideoStore = defineStore('video', {
         return;
       }
       try {
+        this.frameImage = null
         this.agregarDebug("Iniciando análisis de video con upload_video");
         //console.log('[videoStore] Que hay en playersPositions:', this.playersPositions)
         const matchName = this.macthName

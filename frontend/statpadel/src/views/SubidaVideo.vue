@@ -40,7 +40,7 @@
 
           <!-- Área de arrastrar o hacer clic para seleccionar -->
           <el-upload class="upload-area" drag accept="video/*" :auto-upload="false"
-            :limit="1" v-model:file-list="fileList" @change="onFileChange" :src="uploadedUrl" controls >
+            :limit="1" v-model:file-list="fileList" @change="onFileChange" controls >
             <el-icon class="upload-icon">
               <UploadFilled />
             </el-icon>
@@ -112,7 +112,7 @@
 
           <!-- Imagen del primer frame + puntos -->
           <div class="image-wrapper">
-            <img :src="frameImage" alt="Primer frame del vídeo"
+            <img v-if="frameImage" :src="frameImage" alt="Primer frame del vídeo"
               @click="assignPlayers && registrarJugador($event)" ref="frameImg" />
             <div v-for="(player, i) in playersPositions" :key="i" class="punto"
               :style="{ left: player.x + 'px', top: player.y + 'px' }" @click.stop="deseleccionarJugador(i)" >
@@ -148,6 +148,7 @@
           <!-- Imagen del primer frame + puntos -->
           <div class="image-wrapper">
             <img
+              v-if="frameImage"
               :src="frameImage"
               alt="Primer frame del vídeo"
               @click="registrarPunto($event)"

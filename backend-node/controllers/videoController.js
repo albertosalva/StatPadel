@@ -18,11 +18,11 @@ const FLASK_FastAPI = `http://${host}:${port}`;
 //Guardar vídeo en temp/
 exports.uploadVideoTemp = async (req, res) => {
   try {
-    console.log('[uploadVideoTemp] recibido:', req.file.originalname);
+    //console.log('[uploadVideoTemp] recibido:', req.file.originalname);
     // Multer ya guardó en temp/, devolvemos el nombre
     //res.json({ fileName: req.file.originalname });
     const fileName = req.file.filename;
-    console.log('Nombre del fichero cambiado:', req.file.filename)
+    //console.log('Nombre del fichero cambiado:', req.file.filename)
     return res.status(200).json({ fileName });
   }
   catch (err) {
@@ -122,9 +122,9 @@ exports.uploadVideo = async (req, res) => {
       playerPositions: asignados
     })
     const matchId = matchDoc._id.toString();
-    console.log('Match guardado en Mongo con _id =', matchId);
+    //console.log('Match guardado en Mongo con _id =', matchId);
 
-    console.log("Procesando vídeo temporal:", fileName);
+    //console.log("Procesando vídeo temporal:", fileName);
     //const filePath = req.file.path;
 
     // 4 Leer payload de esquinas y dimensiones
@@ -145,11 +145,7 @@ exports.uploadVideo = async (req, res) => {
     form.append('corners', JSON.stringify(cornersSorted));
     form.append('display_width', String(display_width));
     form.append('display_height', String(display_height));
-    console.log('[DEBUG] FormData preparada para FastAPI');
-    console.log('[DEBUG] FormData preparada para FastAPI con campos:');
-    console.log('  corners =', corners);
-    console.log('  display_width =', display_width);
-    console.log('  display_height =', display_height);
+
 
     // Cambiamos el estado del partido a 'analizando'
     matchDoc.status = 'analizando';
@@ -164,7 +160,7 @@ exports.uploadVideo = async (req, res) => {
     const data = response.data;
     const points = await saveAnalysisToInflux(data, matchId);
     //const points = await saveAnalysisToInflux(data, matchId);
-    console.log("Datos guardados en InfluxDB. Puntos escritos:", points);
+    //console.log("Datos guardados en InfluxDB. Puntos escritos:", points);
 
     await waitForInfluxData(matchId, points);
 
@@ -174,14 +170,14 @@ exports.uploadVideo = async (req, res) => {
 
     const { distances, avgSpeeds } = await getPlayersDistanceAndAvgSpeed(matchId);
     const maxSpeeds = await getMaxSpeed(matchId);
-    console.log("Estadísticas recibidas correctamente.");
+    //console.log("Estadísticas recibidas correctamente.");
 
     const heatmapData = await getHeatmapData(matchId);
 
     //console.log("Datos para el mapa de calor obtenidos:", heatmapData);
 
     // Guardar estadísticas en MongoDB y cambiar el estado del partido
-    console.log("Guardando estadísticas en el documento Match de MongoDB...");
+    //console.log("Guardando estadísticas en el documento Match de MongoDB...");
 
     // 2) Empaqueta todo en un solo objeto
     const analysis = {

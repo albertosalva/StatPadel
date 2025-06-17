@@ -25,7 +25,7 @@ const usuarioSchema = new mongoose.Schema({
 usuarioSchema.pre('save', async function(next) {
     if (!this.isModified('password')) return next();
     try {
-      const saltRounds     = 10;
+      const saltRounds = 10;
       this.password = await bcrypt.hash(this.password, saltRounds);
       next()
     } catch (err) {
