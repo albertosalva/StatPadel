@@ -20,6 +20,9 @@
         v-for="p in playerOptions"
         :key="p.value"
         :xs="12"
+        :sm="12"
+        :md="12"
+        :lg="12"
         :span="6"
         class="player-col"
         @change="handleSelectedPlayersChange"
@@ -44,14 +47,20 @@
 
 <script setup>
 import { ref, onMounted, nextTick, defineProps } from 'vue'
-import { useRoute } from 'vue-router'
+//import { useRoute } from 'vue-router'
 import { Chart, registerables } from 'chart.js'
 import { MatrixController, MatrixElement } from 'chartjs-chart-matrix'
 import 'chartjs-chart-matrix'
-import matchService from '@/services/matchService'
+//import matchService from '@/services/matchService'
 
-defineProps({
-  matchId: String
+//defineProps({
+//  matchId: String
+//})
+const props = defineProps({
+  match: {
+    type: Object,
+    required: true
+  }
 })
 
 
@@ -106,8 +115,8 @@ const padelCourtLines = {
 }
 Chart.register(...registerables, MatrixController, MatrixElement, padelCourtLines)
 
-const route = useRoute()
-const matchId = route.params.id
+//const route = useRoute()
+//const matchId = route.params.id
 
 const heatmapData = ref(null)
 const canvasRef = ref(null)
@@ -249,10 +258,10 @@ function renderHeatmap() {
 }
 
 onMounted(async () => {
-  console.log("🟡 Cargando heatmap para matchId:", matchId)
+  //console.log("🟡 Cargando heatmap para matchId:", matchId)
 
   try {
-    const match = await matchService.getMatchById(matchId)
+    const match =  props.match//await matchService.getMatchById(matchId)
     if (!match || !match.heatmap) {
       console.warn("⚠️ No se encontraron datos de heatmap.")
       return

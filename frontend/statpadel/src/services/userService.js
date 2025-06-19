@@ -17,7 +17,7 @@ export const loginService = async (username, password) => {
   // Llamar al endpoint de login
   try {
     const {data} = await axios.post('/api/auth/login', {username, password});
-    const {token, userId: apiUserId, username: userName, email: email } = data
+    const {token, userId: apiUserId, username: userName, email: email , avatarPath: avatarPath} = data
 
     let userId = apiUserId
     if (!userId) {
@@ -25,7 +25,7 @@ export const loginService = async (username, password) => {
       const payload = jwtDecode(token)
       userId = payload.sub
     }
-    return { token, userId, username: userName, email: email }
+    return { token, userId, username: userName, email: email, avatarPath  }
   }
   catch (error) {
     console.error('Error en el servicio de login:', error);
@@ -91,6 +91,29 @@ export const deleteUser = async () => {
     if (error.response?.data?.message) {
       throw new Error(error.response.data.message)
     }
+    throw error
+  }
+}
+
+
+export const buscarUsuarios = async (query) => {
+  const api = getApi()
+  const name = (query || '').trim()
+  if (!name) {
+    return []
+  }
+
+  console.log('[userService] buscando usuarios con nombre:', name)
+  try {
+    const { data } = await api.get(`/search`, {
+      params: { name: name }
+    })
+    // response.data = [{ value, label, avatarUrl }, …]
+    console.log('[userService] Usuarios encontrados:', data)
+    return data
+  } catch (error) {
+    console.error('[❌ userService] Error buscando usuarios:', error)
+    // Puedes optar por devolver [] en caso de error o propagar:
     throw error
   }
 }

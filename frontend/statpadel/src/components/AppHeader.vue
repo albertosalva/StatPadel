@@ -16,7 +16,7 @@
 
 			<el-dropdown @command="handleCommand">
 				<span class="el-dropdown-link">
-					<el-avatar shape="square" class="user-avatar">{{ userInitial }}</el-avatar>
+					<el-avatar shape="square" class="user-avatar" :src="avatarUrl">{{ userInitial }}</el-avatar>
 				</span>
 				<template #dropdown>
             <el-dropdown-menu>
@@ -43,10 +43,12 @@ import { Sunny, Moon } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/authStore'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import axios from 'axios'
 
 const themeStore = useThemeStore()
 const authStore = useAuthStore()
 const router = useRouter()
+
 
 onMounted(() => {
   themeStore.initTheme()
@@ -56,6 +58,15 @@ const isDark = computed(() => themeStore.isDark)
 const onToggleTheme = () => {
   themeStore.toggleTheme()
 }
+
+
+const avatarUrl = computed(() => {
+  const path = authStore.avatarPath
+  const url = path ? `${axios.defaults.baseURL}${path}` : ''
+  console.log('AVATAR URL:', url)
+  return url
+})
+
 
 // Sacamos el username del store y calculamos su inicial
 const username = computed(() => authStore.getUsername)

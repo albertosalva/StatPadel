@@ -18,7 +18,16 @@
       </div>
 
       <div v-else>
-      <el-row :gutter="20" class="estadisticas-layout">
+        <el-row style="margin-top: 20px">
+          <el-col :span="24">
+            <el-card shadow="hover">
+              <template #header>👥 Jugadores del partido</template>
+              <JugadoresImagen :players="playerOverview" />
+            </el-card>
+          </el-col>
+        </el-row>
+      
+      <el-row :gutter="20" style="margin-top: 20px" class="estadisticas-layout">
         <!-- Columna izquierda -->
         <el-col :xs="24" :md="16" class="estadisticas-col">
           <div class="estadisticas-col-inner">
@@ -44,7 +53,7 @@
           <div class="estadisticas-col-inner">
             <el-card shadow="hover">
               <template #header>🔥 Mapa de calor</template>
-              <HeatMap :match-id="matchId"/>
+              <HeatMap :match="match"/>
             </el-card>
 
             <el-card shadow="hover" class="expand-card">
@@ -85,6 +94,7 @@ import BallStatsChart from '@/components/BolaEstadisticas.vue'
 import JugadoresEstadisticas from '@/components/JugadoresEstadisticas.vue'
 import HeatMap from '@/components/HeatMap.vue'
 import ComparadorJugadores from '@/components/ComparadorJugadores.vue'
+import JugadoresImagen from '@/components/JugadoresImagen.vue'
 
 
 import { onMounted, ref, computed} from 'vue'
@@ -133,7 +143,8 @@ const playerStats = computed(() => {
   const analysis = match.value?.analysis
   const playerInfo = match.value?.playerPositions || {}
   
-  if (!analysis?.distances || !analysis?.avgSpeeds || !analysis?.maxSpeeds) return null
+  if (!analysis?.distances || !analysis?.avgSpeeds || !analysis?.maxSpeeds) 
+    return null
 
   // Solo incluir jugadores comunes a los tres conjuntos
   const jugadores = Object.keys(analysis.distances).filter(id =>
@@ -154,6 +165,18 @@ const playerStats = computed(() => {
 
   console.log('Player Stats:', stats)
   return stats
+})
+
+const playerOverview = computed(() => {
+  const pp = match.value?.playerPositions || {}
+  // Lo convertimos en un array de { id, name, avatarPath }
+  return Object.entries(pp)
+    .filter(([, p]) => p != null)
+    .map(([id, p]) => ({
+      id,
+      name:       p.name,
+      avatarPath: p.avatarPath
+    }))
 })
 
 </script>

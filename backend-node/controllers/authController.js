@@ -35,11 +35,12 @@ exports.login = async (req, res) => {
       { expiresIn: '8h' }
     )
 
-    const userId = user._id.toString(); // Convertir a string si es necesario
-    const email  = user.email;
-    console.log('Usuario autenticado:', email, userId);
+    const userId = user._id.toString() // Convertir a string si es necesario
+    const email  = user.email
+    const avatar = user.avatarPath
+    console.log('Usuario autenticado:', email, userId, avatar);
     
-    return res.json({ token: token, username: user.username , email: email, userId: userId});
+    return res.json({ token: token, username: user.username , email: email, userId: userId, avatarPath: avatar });
     
   } catch (err) {
     console.error('Error en el login:', err);
@@ -62,11 +63,14 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'El correo ya está registrado' });
     }
 
+    avatarPath = '/uploads/avatars/avatarDefault.png'
+
 
     const newUser = new Usuario({
       username: nombre,
       email: email,
-      password: password //Se hashea en el modelo de Users.js
+      password: password, //Se hashea en el modelo de Users.js
+      avatarPath: avatarPath
     });
 
     await newUser.save();

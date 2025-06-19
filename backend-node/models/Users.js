@@ -14,9 +14,14 @@ const usuarioSchema = new mongoose.Schema({
         required: true, 
         unique: true 
     },
-    password: { type: String,
+    password: { 
+        type: String,
         required: true 
-    }
+    },
+    avatarPath: {
+        type: String,
+        default: null
+    },
 }, { 
     collection: 'users', 
     timestamps: true

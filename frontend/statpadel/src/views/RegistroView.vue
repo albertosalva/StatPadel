@@ -14,7 +14,7 @@
         <el-input v-model="form.email" placeholder="Email" :prefix-icon="Message"/>
         <el-input v-model="form.password" type="password" placeholder="Contraseña" show-password :prefix-icon="Lock"/>
         <el-input v-model="form.confirmPassword" type="password" placeholder="Confirmar contraseña" show-password :prefix-icon="Lock"/>
-        <el-button type="primary" native-type="submit" block :plain="isDark">Iniciar sesión</el-button>
+        <el-button type="primary" native-type="submit" block :plain="isDark">Registrarse</el-button>
       </el-form>
 
       <!-- Mensaje de error -->

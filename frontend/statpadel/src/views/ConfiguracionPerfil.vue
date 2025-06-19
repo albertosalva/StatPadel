@@ -9,7 +9,7 @@
       <h1 class="profile-title">Configuración de Perfil</h1>
 
       <el-form ref="profileForm" :model="form" label-width="140px"
-        @submit.prevent="handleSubmit" label-position="top">
+        @submit.prevent="handleSubmit" label-position="top" style="align-items: center;">
         <!-- Nombre -->
         <el-form-item label="Nombre" prop="name">
           <el-input v-model="form.name" placeholder="Nombre de usuario" :prefix-icon="User"/>
@@ -22,7 +22,26 @@
         </el-form-item>
 
         <el-divider />
+        <h3 class="password-title">Actualizar foto de perfil</h3>
+
+        <!-- Avatar actual y subida -->
+        <el-form-item >
+          <div style="display: inline-flex; align-items: center; gap: clamp(16px, 10vw, 100px); width: 100%; display: flex; justify-content: center;">
+            
+            <!-- Avatar actual o previsualización -->
+            <el-avatar :src="avatarPreview"  shape="square" :size="100"  style="border: 1px solid #ccc"/>
+
+            <!-- Botón para seleccionar nueva imagen -->
+            <el-upload action="" :auto-upload="false" :show-file-list="false" :on-change="handleAvatarChange">
+              <el-button>Subir imagen</el-button>
+            </el-upload>
+          </div>
+        </el-form-item>
+
+        <el-divider />
         <h3 class="password-title">Actualizar contraseña</h3>
+
+
 
         <!-- Contraseña actual -->
         <el-form-item label="Contraseña actual" prop="currentPassword">
@@ -49,15 +68,13 @@
           </el-button>
         </el-form-item>
 
-        <!-- Mensaje de éxito / error -->
-        <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon class="mt-4"/>
-        <el-alert v-if="successMessage" :title="successMessage" type="success" show-icon class="mt-4"/>
+        <el-button class="buttom" type="danger" native-type="submit" block :plain="isDark"
+          @click="handleDelete">
+          Eliminar cuenta
+        </el-button>
       </el-form>
 
-      <el-button class="buttom" type="danger" native-type="submit" block :plain="isDark"
-            @click="handleDelete">
-            Eliminar cuenta
-          </el-button>
+      
       </el-card>
     </el-main>
 
@@ -75,6 +92,7 @@ import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 
 const router = useRouter()
 
@@ -86,14 +104,25 @@ const form = reactive({
   confirmNewPassword: '',
 })
 
-const errorMessage = ref('')
-const successMessage = ref('')
 const authStore = useAuthStore()
 
 let originalName = ''
 let originalEmail = ''
 
 const profileForm = ref(null)
+
+const avatarFile = ref(null)
+
+const avatarPreview = ref(
+  authStore.avatarPath
+    ? `${axios.defaults.baseURL}${authStore.avatarPath}`
+    : '/uploads/avatars/avatarDefault.jpg'
+)
+
+function handleAvatarChange(file) {
+  avatarFile.value = file.raw
+  avatarPreview.value = URL.createObjectURL(file.raw)
+}
 
 // Carga datos de usuario al montar
 onMounted(() => {
@@ -105,42 +134,42 @@ onMounted(() => {
 })
 
 async function handleSubmit() {
-  errorMessage.value   = ''
-  successMessage.value = ''
 
   profileForm.value.validate(async valid => {
     if (!valid) return
 
+    console.log('[Vue] Validación del formulario:', form)
+
     const wantsPwdChange = form.currentPassword || form.newPassword || form.confirmNewPassword
     if (wantsPwdChange) {
       if (!form.currentPassword) {
-        errorMessage.value = 'Debes introducir tu contraseña actual'
+        ElMessage.error('Debes introducir tu contraseña actual')
         return
       }
       if (form.newPassword !== form.confirmNewPassword) {
-        errorMessage.value = 'Las nuevas contraseñas no coinciden'
+        ElMessage.error('Las nuevas contraseñas no coinciden')
         return
       }
     }
 
     const noNameChange  = form.name  === originalName
     const noEmailChange = form.email === originalEmail
-    if (noNameChange && noEmailChange && !wantsPwdChange) {
+    const noAvatarChange = !avatarFile.value
+    if (noNameChange && noEmailChange && !wantsPwdChange && noAvatarChange) {
       ElMessage.info('No hay cambios que guardar')
       return
     }
 
-    const payload = {}
-    if (form.name  !== originalName) {
-      payload.name = form.name
+    const payload = {
+      name: form.name,
+      email: form.email,
+      currentPassword: form.currentPassword,
+      newPassword: form.newPassword,
+      avatarFile: avatarFile.value
     }
-    if (form.email !== originalEmail) {
-      payload.email = form.email
-    }
-    if (wantsPwdChange) {
-      payload.currentPassword = form.currentPassword
-      payload.newPassword = form.newPassword
-    }
+
+
+    console.log('[Vue] Payload para actualizar perfil:', payload)
 
     try {
       // Confirmación
@@ -158,8 +187,7 @@ async function handleSubmit() {
       await authStore.updateProfile(payload)
 
       // Éxito
-      successMessage.value = 'Perfil actualizado correctamente'
-      ElMessage.success(successMessage.value)
+      ElMessage.success('Perfil actualizado correctamente')
 
       // Limpia las contraseñas y actualiza los originales
       form.currentPassword   = ''
@@ -167,6 +195,7 @@ async function handleSubmit() {
       form.confirmNewPassword = ''
       originalName  = form.name
       originalEmail = form.email
+      avatarFile.value = null
 
     } catch (err) {
       // Si el usuario canceló el diálogo, no hacemos nada
@@ -174,7 +203,6 @@ async function handleSubmit() {
 
       // Mostramos cualquier otro error
       const msg = err.message || 'Error al actualizar perfil'
-      errorMessage.value = msg
       ElMessage.error(msg)
     }
   })
@@ -248,4 +276,5 @@ const isDark = computed(() => themeStore.isDark)
   width: 100%;
   padding: 12px;
 }
+
 </style>

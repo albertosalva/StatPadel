@@ -34,14 +34,14 @@ exports.getMyMatches = async (req, res) => {
       ]
     })
       .select('matchName matchDate matchLocation status playerPositions owner')
-      .populate('playerPositions.top_left', 'username')
-      .populate('playerPositions.top_right', 'username')
-      .populate('playerPositions.bottom_right', 'username')
-      .populate('playerPositions.bottom_left', 'username')
+      .populate('playerPositions.top_left', 'username avatarPath')
+      .populate('playerPositions.top_right', 'username avatarPath')
+      .populate('playerPositions.bottom_right', 'username avatarPath')
+      .populate('playerPositions.bottom_left', 'username avatarPath')
       .sort({ uploadDate: -1 })
       .lean()
     
-      //console.log('Partidos encontrados:', partidos)
+      //console.log('Partidos encontrados:', JSON.stringify(partidos, null, 2))
       return res.json(partidos)
   }
   catch (err) {
@@ -107,26 +107,36 @@ exports.getMatchById = async (req, res) => {
 
     const filename = path.basename(match.filePath)
     const userId = match.owner.toString()
-    match.videoPath = `/videos/${userId}/${filename}`
+    match.videoPath = `/uploads/videos/${userId}/${filename}`
+    console.log('Partido ruta de vídeo:', match.videoPath)
 
     //Obtener nombres de usuarios en playerPositions
     const positions = match.playerPositions || {};
     const userIds = Object.values(positions).filter(Boolean);
-    const users = await User.find({ _id: { $in: userIds } }).lean();
-    const userMap = Object.fromEntries(users.map(u => [u._id.toString(), u.username]));
+    const users = await User.find({ _id: { $in: userIds } }).select('username avatarPath').lean();
+    const userMap = Object.fromEntries(users.map(u => [u._id.toString(), { 
+        name: u.username, 
+        avatarPath: u.avatarPath
+      }])
+    );
+
+    console.log('Usuarios encontrados:', userMap)
 
     // Crear nuevo objeto con nombres
     const resolvedPositions = {};
     for (const [pos, uid] of Object.entries(positions)) {
       if (uid) {
+        const info = userMap[uid.toString()]
         resolvedPositions[pos] = {
           userId: uid.toString(),
-          name: userMap[uid.toString()] || 'Usuario desconocido'
+          name: info.name || 'Usuario desconocido',
+          avatarPath: info.avatarPath 
         };
       } else {
         resolvedPositions[pos] = null;
       }
     }
+    console.log('Usuarios encontrados:', resolvedPositions)
 
     // Reemplazar playerPositions por versión enriquecida
     match.playerPositions = resolvedPositions;
@@ -175,11 +185,12 @@ exports.updatePlayers = async (req, res) => {
     return res.status(404).json({ error: 'Match not found or unauthorized' })
   }
 
-  await match.populate('playerPositions.top_left', 'username')
-  await match.populate('playerPositions.top_right', 'username')
-  await match.populate('playerPositions.bottom_right', 'username')
-  await match.populate('playerPositions.bottom_left', 'username')
+  await match.populate('playerPositions.top_left', 'username avatarPath')
+  await match.populate('playerPositions.top_right', 'username avatarPath')
+  await match.populate('playerPositions.bottom_right', 'username avatarPath')
+  await match.populate('playerPositions.bottom_left', 'username avatarPath')
 
+  //console.log('Partidos encontrados:', JSON.stringify(match.p, null, 2))
   return res.json({ playerPositions: match.playerPositions })
 }
 

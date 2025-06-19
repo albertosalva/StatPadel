@@ -7,6 +7,13 @@ const fs = require('fs');
 const Match = require('../models/Match');
 const User = require('../models/Users');
 
+const ffmpeg  = require('fluent-ffmpeg');
+const { PassThrough } = require('stream');
+const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
+
+// Aseguramos que ffmpeg usa el binario instalado
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+
 const { saveAnalysisToInflux, waitForInfluxData, getPlayersDistanceAndAvgSpeed, getMaxSpeed, getHeatmapData} = require('./influxController');
 
 const host = process.env.API_HOST;
@@ -43,6 +50,41 @@ exports.loadFrame = async (req, res) => {
     return res.status(404).json({ error: 'Vídeo no encontrado en temp' });
   }
 
+  try {
+    // Leemos el primer frame (vframes=1) y lo capturamos en memoria
+    const buffer = await new Promise((resolve, reject) => {
+      const chunks = [];
+      const pass   = new PassThrough();
+
+      // Configuramos ffmpeg para sólo un frame
+      ffmpeg(filePath)
+        .outputOptions(['-vframes 1'])
+        .format('image2')
+        .on('error', err => reject(err))
+        .on('end', () => resolve(Buffer.concat(chunks)))
+        .pipe(pass, { end: true });
+
+      pass.on('data', chunk => chunks.push(chunk));
+      pass.on('error', err => reject(err));
+    });
+
+    // Convertimos a Base64
+    const b64 = buffer.toString('base64');
+
+    // (Opcional) eliminar el vídeo temporal
+    // fs.unlinkSync(filePath);
+
+    // Devolvemos el frame
+    console.log('[loadFrame] Frame extraído correctamente', {frame: b64});
+    return res.json({ frame: b64 });
+  } catch (err) {
+    console.error('[loadFrame] Error extrayendo frame:', err);
+    return res.status(500).json({ error: 'No se pudo extraer el primer frame' });
+  }
+
+
+/*
+
   // FormData con el fichero
   const form = new FormData();
   form.append('file', fs.createReadStream(filePath), fileName);
@@ -59,7 +101,7 @@ exports.loadFrame = async (req, res) => {
     return res
       .status(err.response?.status || 500)
       .json({ error: err.response?.data?.detail || err.message });
-  }
+  } */
 };
 
 
@@ -90,14 +132,14 @@ exports.uploadVideo = async (req, res) => {
       return res.status(400).json({ error: 'Falta fileName' });
     }
 
-    cornersSorted = ordenarEsquinas(corners);
+    
 
     const tempPath = path.join(__dirname, '..', 'temp', fileName);
     if (!fs.existsSync(tempPath)) {
       return res.status(404).json({ error: 'Vídeo no encontrado en temp' });
     }
 
-    const baseUploadDir = path.join(__dirname, '../uploads');
+    const baseUploadDir = path.join(__dirname, '../uploads', 'videos');
     const userDir = path.join(baseUploadDir, owner);
     if (!fs.existsSync(userDir)) {
       fs.mkdirSync(userDir, { recursive: true });
@@ -127,6 +169,8 @@ exports.uploadVideo = async (req, res) => {
     //console.log("Procesando vídeo temporal:", fileName);
     //const filePath = req.file.path;
 
+    cornersSorted = ordenarEsquinas(corners);
+
     // 4 Leer payload de esquinas y dimensiones
     console.log('[DEBUG] Payload recibido en Node:', {
       cornersSorted,
@@ -138,63 +182,31 @@ exports.uploadVideo = async (req, res) => {
       return res.status(400).json({ error: 'Faltan las esquinas (corners)' });
     }
 
+
+
     // Crear un formulario para reenviar el archivo a FastAPI
     const form = new FormData();
     //form.append('fileName', fileName);
+    console.log('Nombre de la ruta', destPath);
+    form.append('file', fs.createReadStream(destPath), fileName);
     form.append('file_name', fileName);
     form.append('corners', JSON.stringify(cornersSorted));
     form.append('display_width', String(display_width));
     form.append('display_height', String(display_height));
+    form.append('match_id', matchId);
 
+    console.log('Enviando a FastAPI:',{matchId})
 
     // Cambiamos el estado del partido a 'analizando'
     matchDoc.status = 'analizando';
     await matchDoc.save();
     
     // Realizamos la petición POST a FastAPI
-    const response = await axios.post(`${FLASK_FastAPI}/upload_video`, form, {
-      headers: form.getHeaders()
-    });
-
-    // 4) Guardas el análisis en InfluxDB
-    const data = response.data;
-    const points = await saveAnalysisToInflux(data, matchId);
-    //const points = await saveAnalysisToInflux(data, matchId);
-    //console.log("Datos guardados en InfluxDB. Puntos escritos:", points);
-
-    await waitForInfluxData(matchId, points);
-
-    // Obtener estadísticas del partido
-    //const statsResponse = await axios.get(`${FLASK_FastAPI}/match_stats/${matchId}`);
-
-
-    const { distances, avgSpeeds } = await getPlayersDistanceAndAvgSpeed(matchId);
-    const maxSpeeds = await getMaxSpeed(matchId);
-    //console.log("Estadísticas recibidas correctamente.");
-
-    const heatmapData = await getHeatmapData(matchId);
-
-    //console.log("Datos para el mapa de calor obtenidos:", heatmapData);
-
-    // Guardar estadísticas en MongoDB y cambiar el estado del partido
-    //console.log("Guardando estadísticas en el documento Match de MongoDB...");
-
-    // 2) Empaqueta todo en un solo objeto
-    const analysis = {
-      distances,
-      avgSpeeds,
-      maxSpeeds
-    };
+    await axios.post(`${FLASK_FastAPI}/upload_video`, form, {headers: form.getHeaders()});
     
-    matchDoc.analysis = analysis;
-    matchDoc.heatmap = heatmapData;
-    matchDoc.status   = 'analizado';
-    await matchDoc.save();
-
-    
-
     // 5) Devuelves matchId + análisis al cliente
-    return res.json({ matchId, data });
+    //return res.json({ matchId, data });
+    return res.json({ matchId });
     
     // Una vez obtenida la respuesta, eliminamos el archivo temporal
     //fs.unlink(filePath, (err) => {
@@ -215,6 +227,59 @@ exports.uploadVideo = async (req, res) => {
       })
     
   }
+};
+
+
+exports.handleVideoResult = async (req, res) => {
+
+  // 1) Sólo logueamos la llegada y tamaño del body
+    //console.log('📣 [Video Result] Body size:', Buffer.byteLength(JSON.stringify(req.body)), 'bytes');
+    //console.log('📣 [Video Result] matchId:', req.body.matchId);
+
+    // 2) Respondemos OK inmediatamente
+    //return res.json({ ok: true });
+
+  
+  const { matchId, result } = req.body;
+
+  console.log(`📣 [Video Result] Id match ${matchId} completada.`);
+  //console.dir(result, { depth: null });
+
+  const matchDoc = await Match.findById(matchId);
+  if (!matchDoc) {
+    console.error(`Match ${matchId} no encontrado en Mongo`);
+    return res.status(404).json({ error: 'Match no encontrado' });
+  }
+
+
+  const points = await saveAnalysisToInflux(result, matchId);
+
+  await waitForInfluxData(matchId, points);
+
+    // Obtener estadísticas del partido
+    //const statsResponse = await axios.get(`${FLASK_FastAPI}/match_stats/${matchId}`);
+
+
+  const { distances, avgSpeeds } = await getPlayersDistanceAndAvgSpeed(matchId);
+  const maxSpeeds = await getMaxSpeed(matchId);
+
+  const heatmapData = await getHeatmapData(matchId);
+
+  const analysis = {
+    distances,
+    avgSpeeds,
+    maxSpeeds
+  };
+    
+  matchDoc.analysis = analysis;
+  matchDoc.heatmap = heatmapData;
+  matchDoc.status   = 'analizado';
+  await matchDoc.save();
+
+  console.log(`✅ [Video Result] Match ${matchId} actualizado en Mongo y listo.`);
+
+  // Respondes OK a Celery para que no reintente
+  res.json({ ok: true }); 
 };
 
 
@@ -276,3 +341,5 @@ function ordenarEsquinas(corners) {
 
   return [topLeft, topRight, bottomRight, bottomLeft];
 }
+
+

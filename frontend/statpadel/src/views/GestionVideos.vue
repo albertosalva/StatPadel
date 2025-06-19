@@ -70,18 +70,14 @@
           <!-- lectura -->
           <div v-if="matchStore.editingId !== row._id">
             <el-collapse accordion expand-icon-position="left">
-              <el-collapse-item title="Mostrar jugadores" name="players">
-                <div class="players-list">
-                  <div class="player-row" v-for="(label, key) in labels" :key="key">
-                    <span class="player-label">{{ label }}:</span>
-                    <span class="player-name">
-                      {{
-                        (
-                          (row.playerPositions && row.playerPositions[key]) || {}
-                        ).username || 'Sin asignar'
-                      }}
-                    </span>
-                  </div>
+              <el-collapse-item title="Mostrar jugadores" name="players">               
+                <div class="player-row" v-for="(label, key) in labels" :key="key" style="display:flex; align-items:center; gap:8px;">
+                  <el-avatar
+                    :src="(row.playerPositions[key] || {}).avatarPath" size="small"/>
+                  <span class="player-label">{{ label }}:</span>
+                  <span class="player-name">
+                    {{ (row.playerPositions[key] || {}).username || 'Sin asignar' }}
+                  </span>
                 </div>
               </el-collapse-item>
             </el-collapse>
@@ -90,26 +86,31 @@
           <!-- edición -->
           <div v-else>
             <el-row :gutter="12">
-              <el-col
-                v-for="(label, key) in labels"
-                :key="key"
-                :xs="24" :sm="12" :md="6"
-              >
+              <el-col v-for="(label, key) in labels" :key="key" :xs="24" :sm="12" :md="6">
                 <el-form-item :prop="`playerPositions.${key}`">
-                  <div class="input-wrapper"
-                      :class="{
-                        valido:   matchStore.editingPlayersValid[key] === true,
-                        invalido: matchStore.editingPlayersValid[key] === false
-                      }"
-                  >
-                    <el-input
-                      v-model="matchStore.editingPlayersForm[key]"
-                      size="small"
-                      clearable
-                      :placeholder="label"
-                      @blur="() => matchStore.verificarJugadorEditado(matchStore.editingPlayersForm[key], key)"
-                    />
-                  </div>
+                     <el-select
+                        v-model="matchStore.editingPlayersForm[key]"
+                        filterable
+                        remote
+                        clearable
+                        size="small"
+                        :placeholder="label"
+                        :remote-method="query => queryUsers(query, key)"
+                        :loading="loadingPlayers[key]"
+                        style="width: 100%;"
+                      >
+                        <el-option
+                          v-for="item in playerOptions[key]"
+                          :key="item.value"
+                          :label="item.label"
+                          :value="item.value"
+                        >
+                          <div style="display:flex; align-items:center; gap:6px;">
+                            <el-avatar :src="avatarPreview(item.avatarUrl)" size="small" />
+                            <span>{{ item.label }}</span>
+                          </div>
+                        </el-option>
+                      </el-select>
                 </el-form-item>
               </el-col>
             </el-row>
@@ -185,6 +186,9 @@ import { useMatchStore } from '@/stores/matchStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { useAuthStore } from '@/stores/authStore'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import axios from 'axios'
+
+import { buscarUsuarios } from '@/services/userService'
 
 const themeStore = useThemeStore()
 
@@ -211,6 +215,39 @@ watch(
 
 const search = ref('')
 
+const playerOptions   = ref([[], [], [], []])
+const loadingPlayers  = ref([false, false, false, false])
+
+async function queryUsers(query, index) {
+  playerOptions.value[index] = []
+  if (!query || !query.trim()) return
+
+  loadingPlayers.value[index] = true
+  try {
+    const list = await buscarUsuarios(query)
+    playerOptions.value[index] = list
+  } catch {
+    playerOptions.value[index] = []
+  } finally {
+    loadingPlayers.value[index] = false
+  }
+}
+/*
+async function onEditPlayerSelect(value, index) {
+  const form = matchStore.editingPlayersForm
+  form[index] = value
+  try {
+    const res = await comprobarExistencia(value)
+    matchStore.editingPlayersValid[index] = res.exists
+    if (!res.exists) {
+      ElMessage.error(`El usuario “${value}” no está registrado.`)
+    }
+  } catch {
+    matchStore.editingPlayersValid[index] = false
+    ElMessage.error('Error comprobando usuario.')
+  }
+} */
+
 // Buscar partidos por nombre
 const filteredMatches = computed(() => {
   const term = (search.value || '').toLowerCase()
@@ -231,10 +268,10 @@ const paginatedMatches = computed(() => {
 
 
 const labels = {
-  top_left:     'Arriba Izq: ',
-  top_right:    'Arriba Der: ',
-  bottom_left:  'Abajo Izq: ',
-  bottom_right: 'Abajo Der: '
+  top_left:     'Arriba Izq',
+  top_right:    'Arriba Der',
+  bottom_left:  'Abajo Izq',
+  bottom_right: 'Abajo Der'
 }
 
 function onEditMatch(id) {
@@ -313,6 +350,18 @@ const confirmarEliminacion = async (id) => {
       })
     }
   }
+}
+
+
+function avatarPreview(path) {
+  if (!path) {
+    return ''
+  }
+  if (path.startsWith('http')) {
+    return path
+  }
+  const fullUrl = axios.defaults.baseURL + path
+  return fullUrl
 }
 </script>
 

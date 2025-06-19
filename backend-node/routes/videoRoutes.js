@@ -6,6 +6,7 @@ const multer = require('multer');
 const path = require('path');
 const videoController = require('../controllers/videoController');
 const { checkAuth } = require('../middleware/auth')
+const bodyParser    = require('body-parser');
 
 // Configuración de Multer para almacenar el archivo subido en una carpeta "temp"
 const storage = multer.diskStorage({
@@ -32,6 +33,6 @@ router.post('/load_frame', checkAuth, express.json(), videoController.loadFrame)
 // Endpoint para subir el video y enviarlo a FastAPI para análisis
 router.post('/upload_video', checkAuth, express.json(), videoController.uploadVideo);
 
-
+router.post('/video_result', express.json(), videoController.handleVideoResult);
 
 module.exports = router;

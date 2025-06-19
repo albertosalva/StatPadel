@@ -1,10 +1,45 @@
 //controllers/userController.js
 const User = require('../models/Users')
 const Match = require('../models/Match')
-const fs = require('fs/promises')
+const fs = require('fs')
 const path = require('path')
 const bcrypt = require('bcrypt')
 const { deleteMatchById } = require('../services/matchServices')
+
+
+exports.searchUsers = async (req, res) => {
+  try {
+    console.log('[searchUsers] Parámetros de búsqueda:', req.query)
+    const name = (req.query.name || '').trim()
+    if (!name) {
+      return res.status(400).json({ error: 'Falta parámetro q en query' })
+    }
+
+    // Búsqueda “empieza por”, case-insensitive
+    const regex = new RegExp('^' + name, 'i')
+
+    const users = await User
+      .find({ username: regex })
+      .limit(4)
+      .select('username avatarPath')
+      .lean()
+
+    // Formatea la respuesta si es necesario
+    const results = users.map(u => ({
+      value: u.username, 
+      label: u.username, 
+      avatarUrl: u.avatarPath 
+    }))
+
+    console.log('[searchUsers] Resultados encontrados:', results)
+    return res.json(results)
+
+  } catch (err) {
+    console.error('[searchUsers] Error:', err)
+    return res.status(500).json({ error: 'Error buscando usuarios' })
+  }
+}
+
 
 exports.checkUserExists = async (req, res) => {
   const { username } = req.body;
@@ -26,14 +61,6 @@ exports.checkUserExists = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   const userId = req.user.id  // viene de authenticateToken
   const { name, email, currentPassword, newPassword } = req.body
-
-  console.log('[updateProfile] datos recibidos:', {
-    userId,
-    name,
-    email,
-    currentPassword: currentPassword, // solo para debug
-    newPassword: newPassword // solo para debug
-  })
 
   try {
     // 1) Buscar usuario
@@ -82,6 +109,39 @@ exports.updateProfile = async (req, res) => {
       updates.email = email
     }
 
+
+    // 4) Cambio de avatar
+    if (req.file) {
+      console.log('[updateProfile] Subiendo nuevo avatar:', req.file.filename)
+      const newFileName = req.file.filename
+      const avatarPath = '/uploads/avatars/' + newFileName
+      console.log('[updateProfile] Ruta del nuevo avatar:', avatarPath)
+
+      const defaultAvatar = '/uploads/avatars/avatarDefault.png'
+      console.log('[updateProfile] Avatar por defecto:', defaultAvatar)
+
+      const avatarsDir = path.join(__dirname, '..', 'uploads', 'avatars')
+      console.log('[updateProfile] Directorio de avatares:', avatarsDir)
+      const files = fs.readdirSync(avatarsDir)
+
+      files.forEach(file => {
+        const isUserAvatar = (file.startsWith(userId) && file !== defaultAvatar && file !== newFileName)
+        if (isUserAvatar) {
+          const fullPath = path.join(avatarsDir, file)
+          fs.unlink(fullPath, err => {
+            if (err) {
+              console.warn('[updateProfile] ❌ No se pudo borrar avatar anterior:', fullPath)
+            } else {
+              console.log('[updateProfile] ✅ Avatar anterior eliminado:', fullPath)
+            }
+          })
+        }
+      })
+
+      updates.avatarPath = avatarPath
+    }
+
+
     // 4) Si no hay nada que hacer
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ message: 'No hay cambios que guardar' })
@@ -93,9 +153,10 @@ exports.updateProfile = async (req, res) => {
 
     // 6) Devolver datos actualizados (sin password)
     return res.json({
-      userId:   user._id,
+      userId: user._id,
       username: user.username,
-      email:    user.email
+      email: user.email,
+      avatar: user.avatarPath || null,
     })
   } catch (err) {
     console.error('[❌ updateProfile]:', err)

@@ -1,6 +1,8 @@
 // src/stores/matchStore.js
 import { defineStore } from 'pinia'
+import axios from 'axios'
 import matchService from '@/services/matchService'
+//import userService from '@/services/userService'
 
 export const useMatchStore = defineStore('match', {
   state: () => ({
@@ -25,7 +27,28 @@ export const useMatchStore = defineStore('match', {
       this.error = null
       try {
         const res = await matchService.getMyMatches()
-        this.matches = res.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate))
+        console.log('[matchStore] Partidos obtenidos:', res)
+        const withFullUrls = res.map(match => {
+          if (match.playerPositions) {
+            for (const pos of ['top_left', 'top_right', 'bottom_left', 'bottom_right']) {
+              const p = match.playerPositions[pos]
+              if (p && p.avatarPath) {
+                // Si no empieza por http, le anteponemos baseURL
+                if (!p.avatarPath.startsWith('http')) {
+                  p.avatarPath = axios.defaults.baseURL + p.avatarPath
+                }
+              }
+            }
+          }
+          return match
+        })
+        console.log('[matchStore] Partidos con URLs completas:', withFullUrls)
+        // Ahora ordenamos y asignamos
+        this.matches = withFullUrls.sort(
+          (a, b) => new Date(b.uploadDate) - new Date(a.uploadDate)
+        )
+        //console.log('[matchStore] Partidos obtenidos:', normalized)
+        //this.matches = res.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate))
       } catch (err) {
         this.error = err.response?.data?.error || err.message
       } finally {
@@ -63,9 +86,11 @@ export const useMatchStore = defineStore('match', {
     },
     async saveEdit(id) {
       try {
-        const updatedMatch = await matchService.updateMatch(id, this.editingForm)
-        const updatedPlayers = await matchService.updatePlayers(id, this.editingPlayersForm);
-
+        await matchService.updateMatch(id, this.editingForm)
+        await matchService.updatePlayers(id, this.editingPlayersForm);
+        
+        await this.fetchMatches()
+        /*
         const idx = this.matches.findIndex(m => m._id === id)
 
         if (idx !== -1) {
@@ -78,20 +103,20 @@ export const useMatchStore = defineStore('match', {
             // posiciones de jugadores actualizadas
             playerPositions: updatedPlayers.playerPositions
           }
-        }
+        } */
         this.cancelEdit();
       } catch (err) {
         alert(err.response?.data?.error || err.message)
       }
     },
+    /*
     async verificarJugadorEditado(username, key) {
       if (!username) {
         this.editingPlayersValid[key] = null;
         return;
       }
       try {
-        const { exists } = await import('@/services/userService')
-                                  .then(m => m.comprobarExistencia(username));
+        const { exists } = await userService.then(m => m.comprobarExistencia(username));
         this.editingPlayersValid[key] = exists;
         if (!exists) {
           // mostramos un mensaje de error global
@@ -105,7 +130,7 @@ export const useMatchStore = defineStore('match', {
           ElMessage.error('Error comprobando el jugador.')
         );
       }
-    },
+    }, */
     async loadGenralStats() {
       const stats = await matchService.fetchGenralStats()
       this.totalVideos = stats.totalVideos

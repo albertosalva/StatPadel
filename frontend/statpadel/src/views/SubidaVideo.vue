@@ -20,7 +20,8 @@
       </el-steps>
 
       <!-- ===== PASO 1: Subida de vídeo ===== -->
-      <div v-if="activeStep === 0" class="paso">
+      <div v-if="activeStep === 0" class="paso" v-loading.fullscreen.lock="fullscreenLoading"
+        element-loading-text="Subiendo el vídeo al servidor…">
         <h2>Sube tu vídeo</h2>
         
         <el-form @submit.prevent="continuarPaso1" :model="form" ref="formRef" :rules="rules"
@@ -94,17 +95,26 @@
           type="primary" show-icon class="mt-4"/>
 
         <div v-if="frameImage" class="frame-container">
-          
 
           <el-row v-if="assignPlayers" :gutter="20" class="players-inputs">
-            <el-col v-for="( _, i ) in nombresJugadores" :key="i" :xs="24" :sm="12" :md="6">
+            <el-col v-for="(_, i) in nombresJugadores" :key="i" :xs="24" :sm="12" :md="6">
               <el-card shadow="hover">
-                <div :class="['input-wrapper',
-                  usuarioValido[i] === true ? 'valido' : '',
-                  usuarioValido[i] === false ? 'invalido' : ''
-                ]">
-                  <el-input v-model="nombresJugadores[i]" :placeholder="`Nombre del jugador ${i + 1}`"
-                    @blur="verificarUsuario(nombresJugadores[i], i)" clearable />
+                <div :class="
+                  [ 'input-wrapper',
+                    usuarioValido[i] === true ? 'valido' : '',
+                    usuarioValido[i] === false ? 'invalido' : ''
+                  ]"
+                >
+                  <el-select v-model="nombresJugadores[i]" filterable remote clearable
+                    :placeholder="`Nombre del jugador  ${i + 1}`" :remote-method="(query) => queryUsers(query, i)"
+                    :loading="loadingPlayers[i]"  @change="onPlayerSelect($event, i)" >
+                    <el-option  v-for="item in playerOptions[i]" :key="item.value" :label="item.label" :value="item.value">
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <el-avatar :src="avatarPreview(item.avatarUrl)" size="small" />
+                        <span>{{ item.label }}</span>
+                      </div>
+                    </el-option>
+                  </el-select>
                 </div>
               </el-card>
             </el-col>
@@ -223,12 +233,13 @@ import {
   Delete,
   User
 } from '@element-plus/icons-vue'
-import { ElMessage, ElNotification } from 'element-plus'
+import { ElMessage, ElNotification} from 'element-plus'
 
 import { useVideoStore } from '@/stores/videoStore'
-import { comprobarExistencia } from '@/services/userService'
+import { comprobarExistencia, buscarUsuarios } from '@/services/userService'
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
+import axios from 'axios'
 
 // Store y router
 const videoStore = useVideoStore()
@@ -251,6 +262,9 @@ const form = reactive({
 const usuarioValido = ref([null, null, null, null])
 const nombresJugadores = ref(["", "", "", ""])
 const assignPlayers = ref(false)  
+
+const playerOptions = ref([[], [], [], []])
+const loadingPlayers = ref([false, false, false, false])
 
 // Computed
 const frameImage = computed(() => videoStore.frameImage)
@@ -281,9 +295,11 @@ const continuarPaso1 = async () => {
       return
     }
 
+    fullscreenLoading.value = true
     videoStore.macthName = form.matchName
     videoStore.macthDate = form.date
     videoStore.macthLocation = form.location
+
 
     // 2.3 Iniciar carga y avanzar
     try {
@@ -291,6 +307,8 @@ const continuarPaso1 = async () => {
       activeStep.value = 1
     } catch (e) {
       ElMessage.error('Error al iniciar la carga. Intenta de nuevo.')
+    } finally {
+      fullscreenLoading.value = false
     }
   })
 }
@@ -338,31 +356,56 @@ const deseleccionarJugador = (index) => {
   videoStore.playersPositions.splice(index, 1)
 }
 
-// Validar usuario
-async function verificarUsuario(username, index) {
-  if (!username) {
-    usuarioValido.value[index] = null;
-    return;
+
+// Verificar usuario al perder foco
+async function queryUsers(query, index) {
+  console.log(`[queryUsers] Buscando para índice ${index} con query=“${query}”`)
+  playerOptions.value[index] = []
+  if (!query || !query.trim()) {
+    console.log(`[queryUsers] Query vacío, saliendo para índice ${index}`)
+    return
   }
-  console.log(`> [STORE] Verificando nombre “${username}” para posición ${index}`);
+
+  loadingPlayers.value[index] = true
   try {
-    //console.log("🔍 Verificando usuario:", username);
-    const res = await comprobarExistencia(username);
-    //console.log("✅ Resultado de comprobación:", res);
-    usuarioValido.value[index] = res.exists;
-    console.log(`[STORE] Usuario válido[${index}] =`, res.exists);
-    if (!res.exists) {
-      ElMessage.error(`El usuario “${username}” no está registrado.`);
-    }
-    if (videoStore.playersPositions[index]) {
-      videoStore.playersPositions[index].username = nombresJugadores.value[index] || '';
-      console.log('[STORE] playersPositions tras asignar user:', videoStore.playersPositions);
-    }
+    const list = await buscarUsuarios(query)
+    console.log(`[queryUsers] Lista recibida para índice ${index}:`, list)
+    playerOptions.value[index] = list
   } catch (err) {
-    console.error("❌ Error al verificar usuario:", err);
-    usuarioValido.value[index] = false;
-    ElMessage.error('Hubo un error al comprobar el usuario.');
+    console.error(`[queryUsers] Error buscando para índice ${index}:`, err)
+    playerOptions.value[index] = []
+  } finally {
+    loadingPlayers.value[index] = false
   }
+}
+
+async function onPlayerSelect(value, index) {
+  nombresJugadores.value[index] = value
+  try {
+    const res = await comprobarExistencia(value)
+    usuarioValido.value[index] = res.exists
+    if (!res.exists) {
+      ElMessage.error(`El usuario “${value}” no está registrado.`)
+    }
+    // Si ya marcaste posición, asigna el username al store
+    if (videoStore.playersPositions[index]) {
+      videoStore.playersPositions[index].username = value
+    }
+  } catch {
+    usuarioValido.value[index] = false
+    ElMessage.error('Error comprobando existencia de usuario.')
+  }
+}
+
+function avatarPreview(path) {
+  if (!path) {
+    return ''
+  }
+  if (path.startsWith('http')) {
+    return path
+  }
+  const fullUrl = axios.defaults.baseURL + path
+  return fullUrl
 }
 
 // Verifica todos al continuar

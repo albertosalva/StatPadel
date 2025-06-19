@@ -16,8 +16,9 @@ mongoose.connect(mongoURI)
 
 
 // Middleware para parsear JSON
-app.use(express.json());
-
+//app.use(express.json());
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ limit: '200mb', extended: true }));
 // Aplica CORS
 app.use(cors({ origin: '*' }));
 
@@ -44,7 +45,7 @@ const userRoutes = require('./routes/userRoutes');
 app.use('/api/users', userRoutes);
 
 // Middleware para servir archivos estáticos de la carpeta "uploads"
-app.use('/videos', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
 // Arranque del servidor

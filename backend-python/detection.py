@@ -125,6 +125,7 @@ def video_analyzer(video_path, output_path, court_polygon, batch_size=8):
         ball_track[r[0]:r[1]] = st
 
     ball_track = detectar_botes_en_track(ball_track)
+    #print(f"[DEBUG] Traza de bola obtenida con {ball_track} puntos.")
 
     # ── 3) Preparar streaming ─────────────────────────────────────────────
     cap = cv2.VideoCapture(video_path)
@@ -141,7 +142,11 @@ def video_analyzer(video_path, output_path, court_polygon, batch_size=8):
     idx_global = 0
     batch_frames = []
 
-    annotated_frames = []
+    #annotated_frames = []
+
+    court_polygon = np.array(court_polygon, dtype=np.float32)
+    if court_polygon.ndim == 2:
+        court_polygon = court_polygon.reshape((-1, 1, 2))
 
     # ── Helper: procesa un batch de cualquier tamaño ──────────────────────
     def process_batch(frames_batch):
@@ -225,15 +230,15 @@ def video_analyzer(video_path, output_path, court_polygon, batch_size=8):
             #print(f"Datos añadidos al JSON: {frame_data}")
             idx_global += 1
 
-        for j, frame in enumerate(frames_batch):
+        #for j, frame in enumerate(frames_batch):
             # Obtener jugadores del frame correspondiente si quieres usar el historial (opcional)
-            for pid in sorted(tracked_players):
-                p = tracked_players[pid]
-                if p is not None:
-                    cv2.circle(frame, p, 5, (0, 255, 0), -1)
-                    cv2.putText(frame, f'Player {pid}', (p[0]+10, p[1]), cv2.FONT_HERSHEY_SIMPLEX,
-                                0.5, (0, 255, 0), 1, cv2.LINE_AA)
-            annotated_frames.append(frame.copy())
+        #    for pid in sorted(tracked_players):
+        #        p = tracked_players[pid]
+        #        if p is not None:
+        #            cv2.circle(frame, p, 5, (0, 255, 0), -1)
+        #            cv2.putText(frame, f'Player {pid}', (p[0]+10, p[1]), cv2.FONT_HERSHEY_SIMPLEX,
+        #                        0.5, (0, 255, 0), 1, cv2.LINE_AA)
+            #annotated_frames.append(frame.copy())
 
         frames_batch.clear()  # vaciamos para el siguiente uso
 
