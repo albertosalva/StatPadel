@@ -17,7 +17,7 @@ export const loginService = async (username, password) => {
   // Llamar al endpoint de login
   try {
     const {data} = await axios.post('/api/auth/login', {username, password});
-    const {token, userId: apiUserId, username: userName, email: email , avatarPath: avatarPath} = data
+    const {token, userId: apiUserId, username: userName, email: email , avatarPath: avatarPath, level: level} = data
 
     let userId = apiUserId
     if (!userId) {
@@ -25,7 +25,7 @@ export const loginService = async (username, password) => {
       const payload = jwtDecode(token)
       userId = payload.sub
     }
-    return { token, userId, username: userName, email: email, avatarPath  }
+    return { token, userId, username: userName, email: email, avatarPath,level}
   }
   catch (error) {
     console.error('Error en el servicio de login:', error);
@@ -35,12 +35,13 @@ export const loginService = async (username, password) => {
 
 
 // Función para registrar un usuario
-export const registerService = async (nombre, email, password) => {
+export const registerService = async (nombre, email, password, level) => {
   try {
     const response = await axios.post('/api/auth/register', {
       nombre,
       email,
       password,
+      level
     });
     return response.data;
   }

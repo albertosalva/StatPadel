@@ -6,6 +6,7 @@
         <div class="players-overview-block">
           <el-avatar :src="getAvatarUrl(player.avatarPath)" :size="avatarSize" shape="square"/>
           <div class="players-overview-name">{{ player.name }}</div>
+          <div class="players-overview-level">Nivel: {{ player.level }}</div>
         </div>
       </el-col>
     </el-row>
@@ -35,7 +36,8 @@ const playersList = computed(() =>
   Object.entries(props.players).map(([id, p]) => ({
     id,
     name: p.name && p.name !== id ? p.name : (positionLabels[id] || id),
-    avatarPath: p.avatarPath
+    avatarPath: p.avatarPath,
+    level: p.level
   })),
 )
 

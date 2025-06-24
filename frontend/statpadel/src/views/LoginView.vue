@@ -191,4 +191,12 @@ const onToggleTheme = () => {
     max-width: 100%;
   }
 }
+
+/* Aplicar la tipografía base de Element Plus a TODO el contenedor */
+.login-container {
+  /* Fuente, tamaño y altura de línea de Element Plus */
+  font-family:  var(--el-font-family);
+  font-size:    var(--el-font-size-base);
+  line-height:  var(--el-line-height-base);
+}
 </style>

@@ -16,7 +16,7 @@
 
 			<el-dropdown @command="handleCommand">
 				<span class="el-dropdown-link">
-					<el-avatar shape="square" class="user-avatar" :src="avatarUrl">{{ userInitial }}</el-avatar>
+					<el-avatar shape="square" class="user-avatar" :src="avatarUrl"/>
 				</span>
 				<template #dropdown>
             <el-dropdown-menu>
@@ -63,17 +63,9 @@ const onToggleTheme = () => {
 const avatarUrl = computed(() => {
   const path = authStore.avatarPath
   const url = path ? `${axios.defaults.baseURL}${path}` : ''
-  console.log('AVATAR URL:', url)
   return url
 })
 
-
-// Sacamos el username del store y calculamos su inicial
-const username = computed(() => authStore.getUsername)
-const userInitial = computed(() => {
-  const name = username.value || ''
-  return name.charAt(0).toUpperCase()
-})
 
 // Cambiar logo según el modo oscuro
 const logoSrc = computed(() =>

@@ -18,6 +18,11 @@ const usuarioSchema = new mongoose.Schema({
         type: String,
         required: true 
     },
+    level: {
+        type: String,
+        enum: ['Principiante', 'Intermedio', 'Avanzado'],
+        default: 'Principiante'
+    },
     avatarPath: {
         type: String,
         default: null

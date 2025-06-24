@@ -106,7 +106,7 @@
                           :value="item.value"
                         >
                           <div style="display:flex; align-items:center; gap:6px;">
-                            <el-avatar :src="avatarPreview(item.avatarUrl)" size="small" />
+                            <el-avatar :src="avatarPreview(item.avatarUrl)" size="small" shape="square"/>
                             <span>{{ item.label }}</span>
                           </div>
                         </el-option>

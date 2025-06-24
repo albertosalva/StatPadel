@@ -21,6 +21,17 @@
             :prefix-icon="Message" />
         </el-form-item>
 
+        <el-form-item label="Nivel" prop="level">
+          <el-select v-model="form.level" placeholder="Selecciona tu nivel" clearable>
+            <template #prefix>
+              <el-icon><User /></el-icon>
+            </template>
+            <el-option label="Principiante" value="Principiante" />
+            <el-option label="Intermedio" value="Intermedio" />
+            <el-option label="Avanzado" value="Avanzado" />
+          </el-select>
+        </el-form-item>
+
         <el-divider />
         <h3 class="password-title">Actualizar foto de perfil</h3>
 
@@ -102,12 +113,14 @@ const form = reactive({
   currentPassword: '',
   newPassword: '',
   confirmNewPassword: '',
+  level: ''
 })
 
 const authStore = useAuthStore()
 
 let originalName = ''
 let originalEmail = ''
+let originalLevel = ''
 
 const profileForm = ref(null)
 
@@ -116,7 +129,7 @@ const avatarFile = ref(null)
 const avatarPreview = ref(
   authStore.avatarPath
     ? `${axios.defaults.baseURL}${authStore.avatarPath}`
-    : '/uploads/avatars/avatarDefault.jpg'
+    : ''
 )
 
 function handleAvatarChange(file) {
@@ -128,9 +141,12 @@ function handleAvatarChange(file) {
 onMounted(() => {
   originalName  = authStore.getUsername
   originalEmail = authStore.getEmail
+  originalLevel = authStore.getLevel
 
   form.name  = originalName
   form.email = originalEmail
+  form.level = originalLevel
+  console.log('[Vue] Datos de usuario cargados:', authStore.getLevel)
 })
 
 async function handleSubmit() {
@@ -155,7 +171,8 @@ async function handleSubmit() {
     const noNameChange  = form.name  === originalName
     const noEmailChange = form.email === originalEmail
     const noAvatarChange = !avatarFile.value
-    if (noNameChange && noEmailChange && !wantsPwdChange && noAvatarChange) {
+    const noLevelChange = form.level === originalLevel
+    if (noNameChange && noEmailChange && !wantsPwdChange && noAvatarChange && noLevelChange) {
       ElMessage.info('No hay cambios que guardar')
       return
     }
@@ -165,6 +182,7 @@ async function handleSubmit() {
       email: form.email,
       currentPassword: form.currentPassword,
       newPassword: form.newPassword,
+      level: form.level,
       avatarFile: avatarFile.value
     }
 

@@ -35,12 +35,18 @@ exports.login = async (req, res) => {
       { expiresIn: '8h' }
     )
 
-    const userId = user._id.toString() // Convertir a string si es necesario
-    const email  = user.email
-    const avatar = user.avatarPath
-    console.log('Usuario autenticado:', email, userId, avatar);
+    const respuesta = {
+      token,
+      username: user.username,
+      email: user.email,
+      userId: user._id.toString(),
+      avatarPath: user.avatarPath,
+      level: user.level
+    }
+
+    console.log('Usuario autenticado:', respuesta)
     
-    return res.json({ token: token, username: user.username , email: email, userId: userId, avatarPath: avatar });
+    return res.json(respuesta);
     
   } catch (err) {
     console.error('Error en el login:', err);
@@ -50,7 +56,7 @@ exports.login = async (req, res) => {
 
 // Controlador para registrar nuevos usuarios
 exports.register = async (req, res) => {
-  const { nombre, email, password } = req.body;
+  const { nombre, email, password, level } = req.body;
 
   try {
     const existingByUsername = await Usuario.findOne({ username: nombre });
@@ -63,6 +69,10 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'El correo ya está registrado' });
     }
 
+    if (!['Principiante','Intermedio','Avanzado'].includes(level)) {
+      return res.status(400).json({ message: 'Nivel no seleccionado' })
+    }
+
     avatarPath = '/uploads/avatars/avatarDefault.png'
 
 
@@ -70,6 +80,7 @@ exports.register = async (req, res) => {
       username: nombre,
       email: email,
       password: password, //Se hashea en el modelo de Users.js
+      level: level,
       avatarPath: avatarPath
     });
 

@@ -12,6 +12,14 @@
       <el-form @submit.prevent="handleRegister" :model="form" ref="registerForm" label-width="100px">
         <el-input v-model="form.username" placeholder="Usuario" :prefix-icon="User"/>
         <el-input v-model="form.email" placeholder="Email" :prefix-icon="Message"/>
+        <el-select v-model="form.level" placeholder="Selecciona tu nivel" clearable>
+          <template #prefix>
+            <el-icon><User /></el-icon>
+          </template>
+          <el-option label="Principiante" value="Principiante" />
+          <el-option label="Intermedio" value="Intermedio" />
+          <el-option label="Avanzado" value="Avanzado" />
+        </el-select>
         <el-input v-model="form.password" type="password" placeholder="Contraseña" show-password :prefix-icon="Lock"/>
         <el-input v-model="form.confirmPassword" type="password" placeholder="Confirmar contraseña" show-password :prefix-icon="Lock"/>
         <el-button type="primary" native-type="submit" block :plain="isDark">Registrarse</el-button>
@@ -48,7 +56,7 @@ const authStore = useAuthStore()
 const router = useRouter()
 
 // Formulario 
-const form = ref({username: '', email: '', password: '', confirmPassword: ''})
+const form = ref({username: '', email: '', password: '', confirmPassword: '', level: ''})
 const errorMessage = ref('')
 
 const handleRegister = async () => {
@@ -59,7 +67,8 @@ const handleRegister = async () => {
       form.value.username,
       form.value.email,
       form.value.password,
-      form.value.confirmPassword
+      form.value.confirmPassword,
+      form.value.level
     )
     ElMessage({
       message: 'Usuario registrado exitosamente',
@@ -196,5 +205,16 @@ const onToggleTheme = () => {
     max-width: 100%;
   }
 }
+
+/* Aplicar la tipografía base de Element Plus a TODO el contenedor */
+.register-container {
+  /* Fuente, tamaño y altura de línea de Element Plus */
+  font-family:  var(--el-font-family);
+  font-size:    var(--el-font-size-base);
+  line-height:  var(--el-line-height-base);
+}
+
+
+
 </style>
 

@@ -60,7 +60,7 @@ exports.checkUserExists = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   const userId = req.user.id  // viene de authenticateToken
-  const { name, email, currentPassword, newPassword } = req.body
+  const { name, email, currentPassword, newPassword, level } = req.body
 
   try {
     // 1) Buscar usuario
@@ -108,20 +108,23 @@ exports.updateProfile = async (req, res) => {
       }
       updates.email = email
     }
+    if(level && level !== user.level) {
+      const validLevels = ['Principiante', 'Intermedio', 'Avanzado']
+      if (!validLevels.includes(level)) {
+        return res.status(400).json({ message: 'Nivel no válido' })
+      }
+      updates.level = level
+    }
 
 
     // 4) Cambio de avatar
     if (req.file) {
-      console.log('[updateProfile] Subiendo nuevo avatar:', req.file.filename)
       const newFileName = req.file.filename
       const avatarPath = '/uploads/avatars/' + newFileName
-      console.log('[updateProfile] Ruta del nuevo avatar:', avatarPath)
 
       const defaultAvatar = '/uploads/avatars/avatarDefault.png'
-      console.log('[updateProfile] Avatar por defecto:', defaultAvatar)
 
       const avatarsDir = path.join(__dirname, '..', 'uploads', 'avatars')
-      console.log('[updateProfile] Directorio de avatares:', avatarsDir)
       const files = fs.readdirSync(avatarsDir)
 
       files.forEach(file => {
@@ -156,6 +159,7 @@ exports.updateProfile = async (req, res) => {
       userId: user._id,
       username: user.username,
       email: user.email,
+      level: user.level,
       avatar: user.avatarPath || null,
     })
   } catch (err) {

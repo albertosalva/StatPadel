@@ -113,10 +113,11 @@ exports.getMatchById = async (req, res) => {
     //Obtener nombres de usuarios en playerPositions
     const positions = match.playerPositions || {};
     const userIds = Object.values(positions).filter(Boolean);
-    const users = await User.find({ _id: { $in: userIds } }).select('username avatarPath').lean();
+    const users = await User.find({ _id: { $in: userIds } }).select('username avatarPath level').lean();
     const userMap = Object.fromEntries(users.map(u => [u._id.toString(), { 
         name: u.username, 
-        avatarPath: u.avatarPath
+        avatarPath: u.avatarPath,
+        level: u.level
       }])
     );
 
@@ -130,7 +131,8 @@ exports.getMatchById = async (req, res) => {
         resolvedPositions[pos] = {
           userId: uid.toString(),
           name: info.name || 'Usuario desconocido',
-          avatarPath: info.avatarPath 
+          avatarPath: info.avatarPath, 
+          level: info.level || 'Desconocido'
         };
       } else {
         resolvedPositions[pos] = null;

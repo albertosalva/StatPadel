@@ -108,9 +108,10 @@
                   <el-select v-model="nombresJugadores[i]" filterable remote clearable
                     :placeholder="`Nombre del jugador  ${i + 1}`" :remote-method="(query) => queryUsers(query, i)"
                     :loading="loadingPlayers[i]"  @change="onPlayerSelect($event, i)" >
-                    <el-option  v-for="item in playerOptions[i]" :key="item.value" :label="item.label" :value="item.value">
+                    <el-option  v-for="item in playerOptions[i]" :key="item.value" :label="item.label" :value="item.value"
+                      :disabled="seleccionados.includes(item.value) && item.value !== nombresJugadores[i]">
                       <div style="display:flex; align-items:center; gap:8px;">
-                        <el-avatar :src="avatarPreview(item.avatarUrl)" size="small" />
+                        <el-avatar :src="avatarPreview(item.avatarUrl)" size="small" shape="square"/>
                         <span>{{ item.label }}</span>
                       </div>
                     </el-option>
@@ -349,6 +350,11 @@ const deseleccionarPunto = (index) => {
 // Click en imagen (guardar punto)
 const registrarJugador = (event) => {
   videoStore.registrarJugador(event, frameImg.value)
+  const idx = videoStore.playersPositions.length - 1
+  const name = nombresJugadores.value[idx]
+  if (name && usuarioValido.value[idx]) {
+    videoStore.playersPositions[idx].username = name
+  }
 }
 
 // Eliminar punto
@@ -381,6 +387,7 @@ async function queryUsers(query, index) {
 
 async function onPlayerSelect(value, index) {
   nombresJugadores.value[index] = value
+  console.log(`[onPlayerSelect] Seleccionado “${value}” para índice ${index}`)
   try {
     const res = await comprobarExistencia(value)
     usuarioValido.value[index] = res.exists
@@ -390,12 +397,18 @@ async function onPlayerSelect(value, index) {
     // Si ya marcaste posición, asigna el username al store
     if (videoStore.playersPositions[index]) {
       videoStore.playersPositions[index].username = value
+      console.log(`[onPlayerSelect] Asignado username “${videoStore.playersPositions[index].username}” a la posición ${index}`)
     }
   } catch {
     usuarioValido.value[index] = false
     ElMessage.error('Error comprobando existencia de usuario.')
   }
 }
+
+// computed que junta todos los nombres ya seleccionados
+const seleccionados = computed(() =>
+  nombresJugadores.value.filter(n => n && n.trim())
+)
 
 function avatarPreview(path) {
   if (!path) {

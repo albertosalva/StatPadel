@@ -175,7 +175,8 @@ const playerOverview = computed(() => {
     .map(([id, p]) => ({
       id,
       name:       p.name,
-      avatarPath: p.avatarPath
+      avatarPath: p.avatarPath,
+      level:      p.level
     }))
 })
 

@@ -37,7 +37,7 @@
             </div>
             <div class="card-body">
               <p>Total de partidos: {{ matchStore.totalVideos }}</p>
-              <p>Tipo de juego predominante: {{}}</p>
+              <p>Nivel : {{authStore.getLevel}}</p>
               <p>Fecha del último partido subido: {{ formattedLatestVideoDate }}</p>
             </div>
           </el-card>
