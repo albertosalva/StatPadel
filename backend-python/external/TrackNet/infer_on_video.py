@@ -32,58 +32,6 @@ def read_video(path_video):
     cap.release()
     return frames, fps
 
-def read_video_streaming(path_video, chunk_size=450):
-    """
-    Lee el video en bloques (chunks) consecutivos, superponiendo los últimos 2 frames
-    del chunk anterior para no perder información en inferencias por ventanas temporales.
-
-    Args:
-        path_video (str): Ruta al video.
-        chunk_size (int): Número de frames por bloque.
-
-    Yields:
-        List[np.ndarray]: Lista de frames del bloque.
-        int: Índice inicial global del bloque en el video.
-    """
-    cap = cv2.VideoCapture(path_video)
-    fps = int(cap.get(cv2.CAP_PROP_FPS))
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-    buffer = []
-    last_two_frames = []
-    frame_index = 0
-    chunk_number = 1
-
-    print(f"[DEBUG] FPS del video: {fps}")
-    print(f"[DEBUG] Total de frames en el video: {total_frames}")
-
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        buffer.append(frame)
-        frame_index += 1
-
-        if len(buffer) == chunk_size:
-            if last_two_frames:
-                yield last_two_frames + buffer, frame_index - chunk_size - 2
-            else:
-                yield buffer, 0
-            print(f"[DEBUG] Enviado chunk {chunk_number} con {len(buffer)} frames + {len(last_two_frames)} de solape.")
-            chunk_number += 1
-            last_two_frames = buffer[-2:]
-            buffer = []
-
-    # Procesar último bloque si queda
-    if buffer:
-        if last_two_frames:
-            yield last_two_frames + buffer, frame_index - len(buffer) - 2
-        else:
-            yield buffer, frame_index - len(buffer)
-        print(f"[DEBUG] Enviado último chunk con {len(buffer)} frames + {len(last_two_frames)} de solape.")
-
-    cap.release()
-
 def save_serializable_track_line_by_line(ball_track, output_path):
     with open(output_path, 'w') as f:
         for frame_id, pos in enumerate(ball_track):
