@@ -16,8 +16,8 @@ ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 const { saveAnalysisToInflux, waitForInfluxData, getPlayersDistanceAndAvgSpeed, getMaxSpeed, getHeatmapData} = require('../services/influxServices');
 
-const host = process.env.API_HOST;
-const port = process.env.API_PORT_VIDEO;
+const host = process.env.VIDEO_API_HOST;
+const port = process.env.VIDEO_API_PORT;
 const FLASK_FastAPI = `http://${host}:${port}`;
 
 

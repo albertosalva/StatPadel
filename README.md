@@ -57,13 +57,14 @@ Este proyecto fue desarrollado como Trabajo de Fin de Grado (TFG) en el Grado de
 
 ### Tecnologías Utilizadas
 
-* [![Vue.js][Vue.js]][Vue-url]
-* [![Element Plus][ElementPlus]][ElementPlus-url]
-* [![Node.js][Node.js]][Node-url]
-* [![Python][Python]][Python-url]
-* [![FastAPI][FastAPI]][FastAPI-url]
-* [![MongoDB][MongoDB]][MongoDB-url]
-* [![InfluxDB][InfluxDB]][InfluxDB-url]
+ [![Vue.js][Vue.js]][Vue-url] 
+ [![Element Plus][ElementPlus]][ElementPlus-url] 
+ [![Node.js][Node.js]][Node-url] 
+ [![JavaScript][JavaScript]][JavaScript-url] 
+ [![Python][Python]][Python-url] 
+ [![FastAPI][FastAPI]][FastAPI-url] 
+ [![MongoDB][MongoDB]][MongoDB-url] 
+ [![InfluxDB][InfluxDB]][InfluxDB-url] 
 
 <p align="right">(<a href="#readme-top">volver arriba</a>)</p>
 
@@ -114,22 +115,30 @@ Asegúrate de tener instalado:
 6. Configura variables de entorno copiando los ejemplos y editándolos:
     frontend/statpadel/.env
     ```dotenv
-    VUE_APP_API_BASE_URL=http://localhost:3000
+    VUE_APP_API_HOST= # Host de la API
+    VUE_APP_API_PORT= # Puerto en el que escucha la API
     ```
     backend-node/.env
     ```dotenv
-    PORT=3000
-    MONGODB_URI=mongodb://localhost:27017/statpadel
-    JWT_SECRET=tu_secreto_jwt
-    INFLUXDB_URL=http://localhost:8086
-    INFLUXDB_TOKEN=tu_token_influx
-    INFLUXDB_ORG=tu_organizacion
-    INFLUXDB_BUCKET=tu_bucket
+    PORT=           # Puerto en el que escucha el servidor principal
+    JWT_SECRET=     # Clave secreta para firmar y verificar JSON Web Tokens
+
+    VIDEO_API_HOST= # Host del servicio de análisis de vídeo
+    VIDEO_API_PORT= # Puerto del servicio de análisis de vídeo
+
+    MONGODB_URI=    # Cadena de conexión a MongoDB
+
+    INFLUX_URL=     # URL de la instancia de InfluxDB para métricas
+    INFLUX_TOKEN=   # Token de autenticación para InfluxDB
+    INFLUX_ORG=     # Organización en InfluxDB
+    INFLUX_BUCKET=  # Bucket (contenedor) en InfluxDB donde se guardan las series temporales
     ```
     backend-python/.env
     ```dotenv
-    CELERY_BROKER_URL=redis://localhost:6379/0
-    REDIS_URL=redis://localhost:6379/1
+    CELERY_BROKER_URL=      # URL del broker de mensajes (Redis) para encolar tareas de Celery
+    CELERY_RESULT_BACKEND=  # URL del backend (Redis) donde Celery almacena los resultados de las tareas  
+
+    NODE_CALLBACK_URL=       # Endpoint al que el servicio de vídeo envía la notificación del resultado  
     ```
 7. Inicia los servidores:
     
@@ -165,6 +174,8 @@ Asegúrate de tener instalado:
 [ElementPlus-url]: https://element-plus.org/
 [Node.js]: https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white
 [Node-url]: https://nodejs.org/
+[JavaScript]: https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black
+[JavaScript-url]: https://developer.mozilla.org/es/docs/Web/JavaScript
 [Python]: https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white
 [Python-url]: https://www.python.org/
 [FastAPI]: https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white
