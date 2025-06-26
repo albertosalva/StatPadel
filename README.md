@@ -138,7 +138,7 @@ Asegúrate de tener instalado:
     CELERY_BROKER_URL=      # URL del broker de mensajes (Redis) para encolar tareas de Celery
     CELERY_RESULT_BACKEND=  # URL del backend (Redis) donde Celery almacena los resultados de las tareas  
 
-    NODE_CALLBACK_URL=       # Endpoint al que el servicio de vídeo envía la notificación del resultado  
+    NODE_CALLBACK_URL=      # Endpoint al que el servicio de vídeo envía la notificación del resultado  
     ```
 7. Inicia los servidores:
     

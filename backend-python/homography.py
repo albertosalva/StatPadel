@@ -1,4 +1,10 @@
 # homgraphy.py
+
+"""
+Módulo para aplicar homografía a detecciones de vídeo y renombrar jugadores
+según su posición espacial en la pista.
+"""
+
 import cv2
 import numpy as np
 import json
@@ -6,8 +12,18 @@ import json
 
 def order_points(pts):
     """
-    Ordena los puntos de una lista de coordenadas 2D en el orden:
-    [top_left, top_right, bottom_right, bottom_left]
+    Ordena un conjunto de cuatro puntos 2D en el orden:
+    [top_left, top_right, bottom_right, bottom_left].
+
+    Args:
+        pts (List[Tuple[float, float]]): Lista de cuatro pares (x, y).
+
+    Returns:
+        np.ndarray: Array de forma (4, 2) con los puntos ordenados como
+                    [[top_left], [top_right], [bottom_right], [bottom_left]].
+
+    Raises:
+        ValueError: Si `pts` no contiene exactamente cuatro puntos.
     """
     pts = np.array(pts, dtype="float32")
     s = pts.sum(axis=1)
@@ -21,10 +37,17 @@ def order_points(pts):
 
 def transform_point(pt, H):
     """
-    Transforma un punto 2D usando una matriz de homografía.
-    pt: Tupla (x, y) del punto a transformar.
-    H: Matriz de homografía (3x3).
-    Devuelve una tupla (x', y') del punto transformado.
+    Aplica una matriz de homografía a un punto 2D.
+
+    Args:
+        pt (Tuple[float, float]): Punto (x, y) en coordenadas de imagen.
+        H (np.ndarray): Matriz de homografía de forma (3, 3).
+
+    Returns:
+        Tuple[float, float]: Punto transformado (x', y') en coordenadas destino.
+
+    Raises:
+        ValueError: Si `H` no tiene forma (3, 3).
     """
     p = np.array([pt[0], pt[1], 1.0], dtype="float32").reshape(3, 1)
     p_trans = H.dot(p)
@@ -35,8 +58,25 @@ def transform_point(pt, H):
 
 def transform_json_homography(input_data, court_width=10, court_length=20):
     """
-    Transforma un JSON de frames con posiciones de jugadores y bola
-    a un sistema de coordenadas real de la pista de pádel.
+    Aplica homografía a un JSON de detecciones, convirtiendo coordenadas de imagen
+    a coordenadas reales de la pista de pádel.
+
+    Args:
+        input_data (str | dict): Ruta a un fichero JSON o diccionario con:
+            - 'court_corners': lista de cuatro pares [x, y] en imagen.
+            - 'frames': lista de frames con 'players' y 'ball'.
+        court_width (float): Ancho real de la pista.
+        court_length (float): Largo real de la pista.
+
+    Returns:
+        dict: Nuevo diccionario con:
+            - 'fps': fotogramas por segundo (o -1 si no está en el input).
+            - 'court_corners_trans': esquinas en coordenadas reales.
+            - 'frames': lista de frames con posiciones transformadas.
+
+    Raises:
+        FileNotFoundError: Si `input_data` es ruta y no existe el fichero.
+        KeyError: Si falta 'court_corners' o 'frames' en los datos.
     """
 
     # Cargar el JSON de entrada
@@ -111,8 +151,22 @@ def transform_json_homography(input_data, court_width=10, court_length=20):
 
 def rename_players_by_position(input_data):
     """
-    Renombra los jugadores en un JSON de frames según su posición en el primer frame.
-    Asigna etiquetas: top_left, top_right, bottom_left, bottom_right.
+    Renombra los IDs de jugadores en un JSON según su posición espacial en el primer frame válido.
+
+    Args:
+        input_data (str | dict): Ruta a un fichero JSON o diccionario con:
+            - 'frames': lista de frames con 'players'.
+
+    Returns:
+        dict: Nuevo diccionario con:
+            - 'fps', 'court_corners_trans' (copiados del input).
+            - 'frames': lista de frames con claves de jugadores renombradas a
+                        'top_left', 'top_right', 'bottom_left', 'bottom_right'.
+
+    Raises:
+        FileNotFoundError: Si `input_data` es ruta y no existe el fichero.
+        KeyError: Si falta 'frames' en los datos.
+        ValueError: Si no se encuentra ningún frame con cuatro jugadores válidos.
     """
     # Cargar el JSON de entrada
     if isinstance(input_data, str):

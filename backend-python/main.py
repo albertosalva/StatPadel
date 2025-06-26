@@ -1,5 +1,12 @@
 # main.py
 
+"""Módulo principal de la API de análisis de vídeo con FastAPI y Celery.
+
+Este módulo expone un endpoint para subir vídeos, los encola en Celery
+para su procesamiento (detección y homografía) y notifica el resultado
+a un servicio Node.js.
+"""
+
 # Importacion de librerias
 import os
 import uvicorn
@@ -38,7 +45,20 @@ app = FastAPI()
 @celery_app.task(bind=True)
 def analyze_video_task(self, temp_file_path: str, src_corners: list, match_id: str):
     """
-    Tarea de Celery para analizar un video y aplicar homografía.
+    Procesa un vídeo aplicando análisis de detección y transformación por homografía.
+
+    Args:
+        self: Referencia al contexto de la tarea Celery.
+        temp_file_path (str): Ruta al fichero de vídeo temporal.
+        src_corners (List[List[float]]): Lista de 4 esquinas en coordenadas del frame.
+        match_id (str): Identificador único del partido.
+
+    Returns:
+        dict: Resultado JSON tras aplicar homografía y renombrar jugadores.
+
+    Raises:
+        RuntimeError: Si ocurre un error en el análisis del vídeo.
+        requests.RequestException: Si la notificación al servicio Node.js falla.
     """
     try:
         start_time = time.time()
@@ -90,8 +110,21 @@ def analyze_video_task(self, temp_file_path: str, src_corners: list, match_id: s
 @app.post("/upload_video")
 async def upload_video(file: UploadFile = File(...), file_name: str = Form(...), corners: str = Form(...), display_width: float = Form(...), display_height: float = Form(...), match_id: str = Form(...)):
     """
-    Endpoint para subir un video y poner en la cola
-    de tareas para su análisis y transformación.
+    Recibe un vídeo, valida esquinas de UI, convierte coordenadas y lo encola en Celery.
+
+    Args:
+        file (UploadFile): Archivo de vídeo subido por el cliente.
+        file_name (str): Nombre descriptivo del fichero.
+        corners (str): JSON con lista de 4 pares [x, y] en coordenadas de UI.
+        display_width (float): Ancho en píxels de la vista previa.
+        display_height (float): Alto en píxels de la vista previa.
+        match_id (str): Identificador único del partido.
+
+    Returns:
+        dict: Contiene `task_id` y `status` indicando que la tarea está encolada.
+
+    Raises:
+        JSONResponse: Devuelve errores 400 si el JSON de esquinas es inválido o la conversión de coordenadas falla.
     """
 
     # Verificar y crear la carpeta temp si no existe

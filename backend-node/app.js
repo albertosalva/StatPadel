@@ -1,10 +1,54 @@
 // app.js
 
+/**
+ * @overview
+ * <h1>StatPadel API</h1>
+ *
+ * <ul>
+ *   <li>Bienvenido a la documentación de la API de StatPadel.</li>
+ *   <li>Aquí encontrarás todos los módulos, rutas y tipos de datos disponibles.</li>
+ * </ul>
+ */
+
+
+
+/**
+ * @typedef EnvConfig
+ * @property {string} [PORT=3000]        Puerto donde escucha el servidor.
+ * @property {string} JWT_SECRET         Clave secreta para firmar y verificar JWT.
+ * @property {string} VIDEO_API_HOST     Host de tu API de vídeo (FastAPI).
+ * @property {string} VIDEO_API_PORT     Puerto de tu API de vídeo.
+ * @property {string} MONGODB_URI        URI de conexión a MongoDB.
+ * @property {string} INFLUX_URL         URL del cliente de InfluxDB.
+ * @property {string} INFLUX_TOKEN       Token de autenticación para InfluxDB.
+ * @property {string} INFLUX_ORG         Organización de InfluxDB.
+ * @property {string} INFLUX_BUCKET      Bucket de InfluxDB donde guardas los datos.
+ */
+
+/**
+ * @module app
+ * @description
+ * Configura y arranca el servidor Express de StatPadel:
+ * <ul>
+ *  <li>Conexión a MongoDB</li>
+ *  <li>Middlewares (JSON, CORS)</li>
+ *  <li>Rutas de la API</li>
+ *  <li>Carpetas temporales y de uploads</li>
+ *  <li>Arranque del servidor</li>
+ * </ul>
+ * @see EnvConfig
+ * @example
+ * // Arranca en modo desarrollo con nodemon y puerto 3000
+ * $ PORT=3000 nodemon app.js
+ */
+
 const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors'); // Importamos cors
-const mongoose = require('mongoose'); // Importamos Mongoose
+const cors = require('cors'); 
+const mongoose = require('mongoose'); 
 require('dotenv').config();
+
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 
@@ -23,15 +67,13 @@ app.use(express.urlencoded({ limit: '200mb', extended: true }));
 app.use(cors({ origin: '*' }));
 
 // Asegurarse de que la carpeta "temp" existe
-const fs = require('fs');
-const path = require('path');
 const tempDir = path.join(__dirname, 'temp');
 if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir);
   console.log('Carpeta "temp" creada.');
 }
 
-// Uso de las rutas de autenticación
+// Rutas de la API
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 

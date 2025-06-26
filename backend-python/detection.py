@@ -1,5 +1,10 @@
 # detection.py
 
+"""
+Módulo de detección y seguimiento de bola y jugadores en vídeo.
+Utiliza YOLO para detección de jugadores y TrackNet para seguimiento de bola.
+"""
+
 # Importar librerias
 import cv2
 import numpy as np
@@ -22,18 +27,21 @@ from infer_on_video import infer_model, remove_outliers, split_track, interpolat
 
 
 # Funcion para analizar el seguimiento de la bola en varios chunks de frames
-def read_video_streaming(path_video, chunk_size=450):
+def read_video_streaming(path_video, chunk_size=500):
     """
-    Lee el video en bloques (chunks) consecutivos, superponiendo los últimos 2 frames
-    del chunk anterior para no perder información en inferencias por ventanas temporales.
+    Lee un vídeo en memoria por bloques (chunks) superpuestos para procesar la bola.
 
     Args:
-        path_video (str): Ruta al video.
-        chunk_size (int): Número de frames por bloque.
+        path_video (str): Ruta al fichero de vídeo.
+        chunk_size (int): Número de frames por bloque (con solape de 2 frames).
 
     Yields:
-        List[np.ndarray]: Lista de frames del bloque.
-        int: Índice inicial global del bloque en el video.
+        Tuple[List[np.ndarray], int]:
+            - Lista de frames (incluyendo 2 frames de superposición si no es el primer chunk).
+            - Índice del primer frame de este chunk en el vídeo original.
+
+    Raises:
+        RuntimeError: Si no se puede abrir el vídeo.
     """
     cap = cv2.VideoCapture(path_video)
     fps = int(cap.get(cv2.CAP_PROP_FPS))
@@ -77,11 +85,21 @@ def read_video_streaming(path_video, chunk_size=450):
 
 def video_analyzer(video_path, court_polygon, batch_size=8):
     """
-    Analiza un video en streaming y devuelve un JSON con las posiciones de jugadores y bola.
-    Parámetros:
-      - video_path: ruta al vídeo de entrada
-      - court_polygon: np.array con las esquinas de la pista
-      - batch_size: Nº de frames para procesar en cada batch de YOLO
+    Analiza un vídeo completo: detecta la bola por bloques y detecta jugadores por batches.
+
+    Args:
+        video_path (str): Ruta al fichero de vídeo.
+        court_polygon (np.ndarray): Array de cuatro vértices que definen la pista.
+        batch_size (int): Número de frames por batch para detección de jugadores.
+
+    Returns:
+        dict: JSON con:
+            - 'fps': fotogramas por segundo.
+            - 'court_corners': lista de vértices de la pista.
+            - 'frames': lista de dicts con posiciones de 'players' y 'ball'.
+
+    Raises:
+        FileNotFoundError: Si no se encuentra el vídeo.
     """
 
     # Carga el modelo YOLO y el modelo de seguimiento de bola

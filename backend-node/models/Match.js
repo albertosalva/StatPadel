@@ -1,6 +1,12 @@
 // models/Match.js
+
+/**
+ * @module models/Match
+ * @description Esquema Mongoose de partidos de StatPadel.
+ */
+
 const mongoose = require('mongoose');
-const { Schema } = mongoose
+const { Schema } = mongoose;
 
 const MatchSchema = new mongoose.Schema({
   owner: {

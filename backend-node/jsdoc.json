@@ -1,0 +1,20 @@
+{
+  "tags": {
+    "allowUnknownTags": true
+  },
+  "source": {
+    "include": ["controllers", "middleware", "models",
+        "routes", "services", "app.js"],
+    "includePattern": ".+\\.js$",
+    "excludePattern": "(^|\\/|\\\\)(node_modules|temp|uploads|docs)(\\/|\\\\|$)"
+  },
+  "templates": {
+    "default": {
+      "includeDate": false
+    }
+  },
+  "opts": {
+    "destination": "./docs",
+    "recurse": true
+  }
+}

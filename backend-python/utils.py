@@ -1,16 +1,28 @@
 # utils.py
+
+"""
+Módulo de utilidades para transformación de coordenadas entre la interfaz de usuario
+y el primer fotograma de un vídeo.
+"""
+
 import cv2
 import numpy as np
 
 def ui_to_frame_corners(video_path: str, ui_corners: list[tuple[float, float]], display_width: float, display_height: float) -> np.ndarray:
     """
-    Toma:
-      - video_path: ruta al vídeo
-      - ui_corners: lista de 4 pares (x_ui, y_ui) en coordenadas de la imagen mostrada
-      - display_width, display_height: dimensiones de esa imagen en píxels
-    Devuelve:
-      - src_corners: np.array(4x2) con las mismas 4 esquinas escaladas
-        a coordenadas del primer frame del vídeo.
+    Transforma una lista de esquinas definidas en coordenadas de la vista UI a las coordenadas correspondientes en el primer fotograma del vídeo.
+
+    Args:
+        video_path (str): Ruta al fichero de vídeo.
+        ui_corners (List[Tuple[float, float]]): Lista de 4 tuplas (x_ui, y_ui) en coordenadas de la imagen mostrada (UI).
+        display_width (float): Ancho en píxels de la imagen mostrada en UI.
+        display_height (float): Alto en píxels de la imagen mostrada en UI.
+
+    Returns:
+        np.ndarray: Array de forma (4, 2) con las mismas 4 esquinas escaladas a coordenadas del primer fotograma del vídeo (dtype float32).
+
+    Raises:
+        RuntimeError: Si no se puede leer el primer fotograma del vídeo.
     """
     # Leer sólo el primer frame
     cap = cv2.VideoCapture(video_path)
