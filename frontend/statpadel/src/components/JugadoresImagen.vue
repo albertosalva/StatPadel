@@ -1,10 +1,26 @@
+<script>
+/**
+ * @module    components/JugadoresImagen
+ * @component JugadoresImagen
+ * @description
+ * Componente que muestra una cuadrícula con la vista general de los jugadores,
+ * renderizando para cada uno su avatar, nombre y nivel.
+ *
+ * @prop {Array<Object>}   players            - Array con la información de los jugadores.
+ * @prop {string}          players[].id      - Identificador único o posición (e.g. "top_left").
+ * @prop {string}          players[].name    - Nombre del jugador o etiqueta de posición.
+ * @prop {string}          players[].avatarPath - Ruta relativa o URL del avatar del jugador.
+ * @prop {string}          players[].level   - Nivel de habilidad del jugador.
+ */
+</script>
+
 <template>
-  <el-card shadow="hover" class="players-overview-card" >
+  <el-card v-if="playersList.length > 0" shadow="hover" class="players-overview-card" >
     <el-row :gutter="20" class="players-overview-row" justify="center">
       <el-col v-for="player in playersList" :key="player.id"
         :xs="12" :sm="8" :md="6" :lg="4" class="players-overview-col">
         <div class="players-overview-block">
-          <el-avatar :src="getAvatarUrl(player.avatarPath)" :size="avatarSize" shape="square"/>
+          <el-avatar :src="player.avatarURL" shape="square"/>
           <div class="players-overview-name">{{ player.name }}</div>
           <div class="players-overview-level">Nivel: {{ player.level }}</div>
         </div>
@@ -15,7 +31,10 @@
 
 <script setup>
 import { defineProps, computed } from 'vue'
-import axios from 'axios'
+import { useAuthStore } from '@/stores/authStore'
+//import axios from 'axios'
+
+const authStore = useAuthStore()
 
 const props = defineProps({
   players: {
@@ -36,18 +55,18 @@ const playersList = computed(() =>
   Object.entries(props.players).map(([id, p]) => ({
     id,
     name: p.name && p.name !== id ? p.name : (positionLabels[id] || id),
-    avatarPath: p.avatarPath,
+    avatarURL: authStore.getUserAvatarURL(p.avatarPath),
     level: p.level
   })),
 )
 
-function getAvatarUrl(path) {
-    console.log('getAvatarUrl', path)
-  if (!path) return ''
-  return path.startsWith('http')
-    ? path
-    : axios.defaults.baseURL + path
-}
+//function getAvatarUrl(path) {
+//    console.log('getAvatarUrl', path)
+//  if (!path) return ''
+//  return path.startsWith('http')
+//    ? path
+//    : axios.defaults.baseURL + path
+//}
 
 </script>
 

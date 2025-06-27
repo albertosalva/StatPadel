@@ -1,7 +1,16 @@
+<script>
+/**
+ * @module    views/LoginView
+ * @component LoginView
+ * @description
+ * Vista de inicio de sesión de usuarios con formulario (usuario, contraseña).
+ */
+</script>
+
 <template>
   <el-container class="login-container">
     <el-main>
-      <el-image :src="logoSrc" alt="Logo StatPadel" fit="contain" style="height: 100px;"/>
+      <el-image :src="themeStore.logoSrc" alt="Logo StatPadel" fit="contain" style="height: 100px;"/>
 
       <!-- Nombre de la app -->
       <h1 class="login-title">StatPadel</h1>
@@ -55,7 +64,6 @@ const handleLogin = async () => {
   errorMessage.value = ''
   try {
     await authStore.login(form.value.username, form.value.password)
-    //alert('Inicio de sesión exitoso')
     ElMessage({
       message: 'Inicio de sesión exitoso',
       type: 'success',
@@ -65,13 +73,6 @@ const handleLogin = async () => {
     errorMessage.value = error.response?.data?.message || 'Error al iniciar sesión'
   }
 }
-
-// Logo dinámico
-const logoSrc = computed(() =>
-  isDark.value
-    ? require('@/assets/logoSP.png')
-    : require('@/assets/logoSP-dark.png')
-)
 
 const themeStore = useThemeStore()
 

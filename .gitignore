@@ -26,3 +26,4 @@ backend-node/temp/
 # Ignorar los HTMLs de documentacion
 backend-python/build/
 backend-node/docs/
+frontend/statpadel/docs

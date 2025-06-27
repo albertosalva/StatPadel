@@ -1,4 +1,15 @@
 <!-- src/components/AppFooter.vue -->
+
+<script>
+/**
+ * @module    components/AppFooter
+ * @component AppFooter
+ * @description
+ * Componente de pie de página de la aplicación StatPadel.  <br>
+ * Muestra dinámicamente el año actual.
+ */
+</script>
+
 <template>
   <el-footer class="footer">
     <p>© StatPadel {{ currentYear }}</p>

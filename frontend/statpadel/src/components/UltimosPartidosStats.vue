@@ -1,3 +1,15 @@
+<script>
+/**
+ * @module    components/UltimosPartidosStats
+ * @component UltimosPartidosStats
+ * @description
+ * Componente que muestra tres gráficos de barras con estadísticas de los últimos partidos de un jugador:<br>
+ * - Distancia total recorrida (m).  <br>
+ * - Velocidad media (m/s).  <br>
+ * - Velocidad máxima (m/s). 
+ */ 
+</script>
+
 <template>
   <div class="jugadores-stats">
     <el-card class="chart-card" shadow="hover">
@@ -24,28 +36,28 @@ import { Bar } from 'vue-chartjs'
 import { useMatchStore } from '@/stores/matchStore'
 import { useThemeStore } from '@/stores/themeStore'
 
-// 1) Registrar componentes de Chart.js
+// Registrar componentes de Chart.js
 Chart.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 
-// 2) Store y estado reactivo
+// Store y estado reactivo
 const matchStore = useMatchStore()
 const lastMatchesStats = computed(() => matchStore.lastMatchesStats)
 
-// 3) Tema para colores dinámicos
+// Tema para colores dinámicos
 const themeStore = useThemeStore()
-const isDark = computed(() => themeStore.isDark)
+//const isDark = computed(() => themeStore.isDark)
 
-// 4) Carga datos al montar
+// Carga datos al montar
 onMounted(() => {
   matchStore.loadLastMatchesStats()
 })
 
-// 5) Etiquetas: usa el nombre o la fecha del partido
+// Etiquetas: usa el nombre o la fecha del partido
 const labels = computed(() =>
   lastMatchesStats.value.map(m => m.matchName || formatDate(m.matchDate))
 )
 
-// 6) Datasets para cada métrica
+// Datos para los gráficos
 const distanciaData = computed(() => ({
   labels: labels.value,
   datasets: [{
@@ -73,47 +85,35 @@ const velMaximaData = computed(() => ({
   }]
 }))
 
-// 7) Opciones compartidas
+// Opciones de configuración del gráfico
 const chartOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
     legend: {
       position: 'bottom',
-      labels: { color: cssVars.value.textColor }
+      labels: { color: themeStore.textColor }
     }
   },
   scales: {
     x: {
-      ticks: { color: cssVars.value.textColor },
-      grid:  { color: cssVars.value.gridColor }
+      ticks: { color: themeStore.textColor },
+      grid:  { color: themeStore.gridColor }
     },
     y: {
       beginAtZero: true,
-      ticks: { color: cssVars.value.textColor },
-      grid:  { color: cssVars.value.gridColor }
+      ticks: { color: themeStore.textColor },
+      grid:  { color: themeStore.gridColor }
     }
   }
 }))
 
-// 8) Helpers
+// Función para formatear fechas
 function formatDate(dateString) {
   return dateString
     ? new Date(dateString).toLocaleDateString()
     : '—'
 }
-
-function getCssVar(name) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-}
-
-const cssVars = computed(() => {
-  void isDark.value
-  return {
-    textColor: getCssVar('--el-text-color-primary'),
-    gridColor: getCssVar('--el-border-color')
-  }
-})
 
 </script>
 

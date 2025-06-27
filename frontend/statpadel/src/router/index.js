@@ -1,5 +1,12 @@
 // src/router/index.js
 
+/**
+ * @module router/index
+ * @description
+ * Configuración de Vue Router para la aplicación StatPadel.  <br>
+ * Define rutas públicas y privadas, y añade un guard que verifica la validez del token JWT antes de acceder a las rutas que requieren autenticación.
+ */
+
 // Importamos las funciones necesarias para crear el router
 import { createRouter, createWebHistory } from 'vue-router';
 
@@ -41,15 +48,11 @@ router.beforeEach((to, from, next) => {
         return next();
       } else {
         // Token expirado
-        //localStorage.removeItem('token');
-        //localStorage.removeItem('username');
         authStore.logout();
         return next({ name: 'Login' });
       }
     } catch (err) {
       // Error al decodificar el token, redirigir a Login
-      //localStorage.removeItem('token');
-      //localStorage.removeItem('username');
       authStore.logout();
       return next({ name: 'Login' });
     }

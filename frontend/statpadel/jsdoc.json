@@ -1,0 +1,22 @@
+{
+  "tags": {
+    "allowUnknownTags": true
+  },
+  "plugins": [
+    "jsdoc-vuejs"
+  ],
+  "source": {
+    "include": ["src"],
+    "includePattern": ".+\\.(js|vue)$",
+    "excludePattern": "(^|\\/|\\\\)(node_modules|docs)(\\/|\\\\|$)"
+  },
+  "templates": {
+    "default": {
+      "includeDate": false
+    }
+  },
+  "opts": {
+    "destination": "./docs",
+    "recurse": true
+  }
+}

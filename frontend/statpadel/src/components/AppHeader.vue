@@ -1,16 +1,28 @@
 <!-- src/components/AppHeader.vue -->
+
+<script>
+/**
+ * @module    components/AppHeader
+ * @component AppHeader
+ * @description
+ * Cabecera de la aplicación StatPadel.  <br>
+ * Incluye logo que navega a la vista principal, selector de tema y menú de usuario con avatar.
+ */
+</script>
+
 <template>
 
   <el-header class="header">
     <!-- Logo -->
     <div class="header-logo">
       <router-link to="/principal">
-        <el-image :src="logoSrc" alt="Logo StatPadel" fit="contain" style="height: 80px;"/>
+        <el-image :src="themeStore.logoSrc" alt="Logo StatPadel" fit="contain" style="height: 80px;"/>
       </router-link>
     </div>
 
 		<!-- Botones para escritorio (solo visibles en escritorio) -->
-    <div class="header-buttons" v-show="!isMobile">
+    <!--<div class="header-buttons" v-show="!isMobile">-->
+    <div class="header-buttons">
       <el-switch v-model="isDark" size="large" :active-action-icon="Moon" 
         :inactive-action-icon="Sunny" @change="onToggleTheme" style="--el-switch-off-color: #909399"/>
 
@@ -43,7 +55,6 @@ import { Sunny, Moon } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/authStore'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import axios from 'axios'
 
 const themeStore = useThemeStore()
 const authStore = useAuthStore()
@@ -54,25 +65,15 @@ onMounted(() => {
   themeStore.initTheme()
 })
 
+// Detectar el modo claro/oscuro
 const isDark = computed(() => themeStore.isDark)
 const onToggleTheme = () => {
   themeStore.toggleTheme()
 }
 
+// Avatar del usuario
+const avatarUrl = computed(() => authStore.getAvatarURL)
 
-const avatarUrl = computed(() => {
-  const path = authStore.avatarPath
-  const url = path ? `${axios.defaults.baseURL}${path}` : ''
-  return url
-})
-
-
-// Cambiar logo según el modo oscuro
-const logoSrc = computed(() =>
-  isDark.value
-    ? require('@/assets/logoSP.png')    // Logo oscuro
-    : require('@/assets/logoSP-dark.png')  // Logo claro
-)
 
 // Manejar la selección del dropdown
 const handleCommand = (command) => {
@@ -87,7 +88,6 @@ const handleCommand = (command) => {
     router.push('/')
   }
 }
-
 </script>
 
 

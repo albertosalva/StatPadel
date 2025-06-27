@@ -1,3 +1,21 @@
+<script>
+/**
+ * @module    components/JugadoresEstadisticas
+ * @component JugadoresEstadisticas
+ * @description
+ * Componente que muestra tres gráficos de barras con estadísticas de los jugadores: <br>
+ * - Distancia total recorrida (m). <br>
+ * - Velocidad media (m/s).<br>
+ * - Velocidad máxima (m/s).
+ *
+ * @prop {Object[]} players                   - Array de objetos con información de los jugadores.
+ * @prop {string}   players[].name             - Nombre del jugador o etiqueta de posición.
+ * @prop {number}   players[].total_distance   - Distancia total recorrida en metros.
+ * @prop {number}   players[].average_speed    - Velocidad media en metros por segundo.
+ * @prop {number}   players[].max_speed        - Velocidad máxima en metros por segundo.
+ */
+</script>
+
 <template>
   <div class="jugadores-stats">
     <el-card class="chart-card" shadow="hover">
@@ -21,12 +39,13 @@
 import {Chart, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, RadialLinearScale, PointElement, LineElement, Filler } from 'chart.js'
 import { Bar } from 'vue-chartjs'
 import { computed, defineProps} from 'vue'
-
 import { useThemeStore } from '@/stores/themeStore'
 
+// Importamos el store de tema
 const themeStore = useThemeStore()
-const isDark = computed(() => themeStore.isDark)
+//const isDark = computed(() => themeStore.isDark)
 
+// Registramos los componentes de Chart.js
 Chart.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, RadialLinearScale, PointElement, LineElement, Filler)
 
 // Props
@@ -47,6 +66,7 @@ const positionLabels = {
   bottom_right: 'Abajo derecha'
 }
 
+// Mapeamos los IDs de los jugadores a sus nombres o etiquetas de posición si no tienen nombre
 const playerLabels = computed(() =>
   labels.value.map(id => {
     const name = props.players[id]?.name
@@ -57,7 +77,7 @@ const playerLabels = computed(() =>
 )
 
 
-
+// Grafica de barras para las estadísticas de los jugadores
 const distanciaData = computed(() => ({
   labels: playerLabels.value,
   datasets: [
@@ -91,6 +111,8 @@ const velMaximaData = computed(() => ({
   ]
 }))
 
+
+// Opciones de configuración del gráfico
 const chartOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
@@ -98,7 +120,7 @@ const chartOptions = computed(() => ({
     legend: {
       position: 'bottom',
       labels: {
-        color: cssVars.value.textColor
+        color: themeStore.textColor
       }
     }
     
@@ -106,39 +128,23 @@ const chartOptions = computed(() => ({
   scales: {
     x: {
       ticks: {
-        color: cssVars.value.textColor
+        color: themeStore.textColor
       },
       grid: {
-        color:  cssVars.value.gridColor
+        color:  themeStore.gridColor
       }
     },
     y: {
       beginAtZero: true,
       ticks: {
-        color: cssVars.value.textColor
+        color: themeStore.textColor
       },
       grid: {
-        color: cssVars.value.gridColor
+        color: themeStore.gridColor
       }
     }
   }
 }))
-
-function getCssVar(name) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-}
-
-const cssVars = computed(() => {
-  void isDark.value
-  return {
-    textColor: getCssVar('--el-text-color-primary'),
-    gridColor: getCssVar('--el-border-color')
-  }
-})
-
-
-
-
 
 </script>
 

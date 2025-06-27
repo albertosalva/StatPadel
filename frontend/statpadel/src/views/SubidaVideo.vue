@@ -1,4 +1,19 @@
 <!-- src/views/SubidaVideo.vue -->
+
+<script>
+/**
+ * @module    views/SubidaVideo
+ * @component SubidaVideo
+ * @description
+ * Componente de asistente en tres pasos para:
+ * <ul>
+ *   <li>Subir y configurar un vídeo de partido.</li>
+ *   <li>Asignar jugadores sobre un frame.</li>
+ *   <li>Marcar las esquinas de la pista para análisis.</li>
+ * </ul>
+ */
+</script>
+
 <template>
   <el-container class="principal-container">
 
@@ -9,11 +24,7 @@
     <el-main class="subida-video">
 
       <!-- ===== BARRA DE PROGRESO ===== -->
-      <el-steps
-        :active="activeStep"
-        finish-status="success"
-        align-center
-      >
+      <el-steps :active="activeStep" finish-status="success" align-center>
         <el-step title="Datos y subida del partido" :icon="EditPen" />
         <el-step title="Identificar jugadores" :icon="User" />
         <el-step title="Seleccionar esquinas" :icon="Pointer" />
@@ -28,16 +39,13 @@
           class="upload-form" label-width="0" >
 
           <!-- Nombre del partido -->
-          <el-input v-model="form.matchName" placeholder="Nombre del partido*" :prefix-icon="EditPen"
-            clearable />
+          <el-input v-model="form.matchName" placeholder="Nombre del partido*" :prefix-icon="EditPen" clearable />
 
           <!-- Lugar -->
-          <el-input v-model="form.location" placeholder="Lugar del partido" :prefix-icon="Location"
-            clearable />
+          <el-input v-model="form.location" placeholder="Lugar del partido*" :prefix-icon="Location" clearable />
 
           <!-- Fecha -->
-          <el-date-picker v-model="form.date" type="date" placeholder="Fecha del partido*"
-            :prefix-icon="Calendar" clearable />
+          <el-date-picker v-model="form.date" type="date" placeholder="Fecha del partido*" :prefix-icon="Calendar" clearable />
 
           <!-- Área de arrastrar o hacer clic para seleccionar -->
           <el-upload class="upload-area" drag accept="video/*" :auto-upload="false"
@@ -154,24 +162,19 @@
 
         <div v-if="frameImage" class="frame-container">
           <p>Haz clic sobre la imagen para marcar cada esquina</p>
-          <p>Haz clic en un punto para deseleccionarlo</p>
+          <el-cotainer class="assign-controls" style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+            <el-button  type="danger" @click="limpiarEsquinas" >
+              Resetear selección
+              <el-icon class="el-icon--right"><Delete /></el-icon>
+            </el-button>
+          </el-cotainer>
 
           <!-- Imagen del primer frame + puntos -->
           <div class="image-wrapper">
-            <img
-              v-if="frameImage"
-              :src="frameImage"
-              alt="Primer frame del vídeo"
-              @click="registrarPunto($event)"
-              ref="frameImg"
-            />
-            <div
-              v-for="(p, i) in corners"
-              :key="i"
-              class="punto"
-              :style="{ left: p.x + 'px', top: p.y + 'px' }"
-              @click.stop="deseleccionarPunto(i)"
-            >
+            <img v-if="frameImage" :src="frameImage" alt="Primer frame del vídeo"
+              @click="registrarPunto($event)" ref="frameImg"/>
+            <div v-for="(p, i) in corners" :key="i" class="punto"
+              :style="{ left: p.x + 'px', top: p.y + 'px' }" @click.stop="deseleccionarPunto(i)" >
               {{ i + 1 }}
             </div>
           </div>
@@ -184,11 +187,7 @@
               <el-icon class="el-icon--right"><ArrowLeft /></el-icon>
               Volver
             </el-button>
-            <el-button
-              type="primary"
-              :disabled="corners.length < 4"
-              @click="analizarVideo"
-            >
+            <el-button  type="primary" :disabled="corners.length < 4"  @click="analizarVideo">
               Analizar vídeo
               <el-icon class="el-icon--right"><ArrowRight /></el-icon>
             </el-button>
@@ -196,19 +195,7 @@
         </div>
       </div>
 
-
-      <!-- ===== SECCIÓN OPCIONAL DE DEPURACIÓN ===== -->
-      <!--
-      <div v-if="debugMessages.length" class="debug-messages">
-        <h4>Depuración</h4>
-        <ul>
-          <li v-for="(msg, i) in debugMessages" :key="i">{{ msg }}</li>
-        </ul>
-      </div>
-      -->
-
       <div v-if="!isAnalyzing">
-    <!-- Aquí va tu flujo normal: pasos, botones, etc. -->
   </div>
 
     </el-main>
@@ -223,41 +210,35 @@
 <script setup>
 import { ref, computed, reactive, watch} from 'vue'
 import { useRouter } from 'vue-router'
-import {
-  UploadFilled,
-  Pointer,
-  ArrowRight,
-  ArrowLeft,
-  EditPen,
-  Calendar,
-  Location, 
-  Delete,
-  User
-} from '@element-plus/icons-vue'
+import {UploadFilled, Pointer, ArrowRight, ArrowLeft, EditPen, Calendar, Location,  Delete, User } from '@element-plus/icons-vue'
 import { ElMessage, ElNotification} from 'element-plus'
 
 import { useVideoStore } from '@/stores/videoStore'
+import { useAuthStore } from '@/stores/authStore'
 import { comprobarExistencia, buscarUsuarios } from '@/services/userService'
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
-import axios from 'axios'
+
 
 // Store y router
 const videoStore = useVideoStore()
+const authStore = useAuthStore()
 const router = useRouter()
 
-// Estado
+// Estados para los pasos, los archivos, la imagen del frame y el loading al subir el vídeo
 const activeStep = ref(0)
 const fileList = ref([])
 const frameImg = ref(null)
 const fullscreenLoading = ref(false)
 
+// Formulario de datos del partido
 const formRef = ref(null)
 const form = reactive({
   matchName: '',
   date: null,
   location: ''
 })
+
 
 // Validación de usuarios
 const usuarioValido = ref([null, null, null, null])
@@ -267,13 +248,16 @@ const assignPlayers = ref(false)
 const playerOptions = ref([[], [], [], []])
 const loadingPlayers = ref([false, false, false, false])
 
-// Computed
+
+// Computed para acceder a los datos del store
 const frameImage = computed(() => videoStore.frameImage)
 const corners = computed(() => videoStore.corners)
 const playersPositions = computed(() => videoStore.playersPositions)
-//const debugMessages = computed(() => videoStore.debugMessages)
 
 
+/*
+PASO DE LA SUBIDA DE VÍDEO Y RELLENAR DATOS DEL PARTIDO
+*/
 // Cambio de archivo
 const onFileChange = (_file, newFileList) => {
   if (newFileList.length > 0) {
@@ -283,7 +267,21 @@ const onFileChange = (_file, newFileList) => {
   }
 }
 
-// Paso 1 → Paso 2
+// Validación de campos del formulario
+const rules = {
+  matchName: [
+    { required: true, message: 'Indica el nombre del partido', trigger: 'blur' }
+  ],
+  date: [
+    { type: 'date', required: true, message: 'Selecciona una fecha', trigger: 'change' }
+  ],
+  location: [
+    { required: true, message: 'Indica el lugar del partido', trigger: 'blur' }
+  ]
+}
+
+
+// Paso 1 al paso 2
 const continuarPaso1 = async () => {
   formRef.value.validate(async valid => {
     if (!valid) {
@@ -297,12 +295,12 @@ const continuarPaso1 = async () => {
     }
 
     fullscreenLoading.value = true
+
     videoStore.macthName = form.matchName
     videoStore.macthDate = form.date
     videoStore.macthLocation = form.location
 
-
-    // 2.3 Iniciar carga y avanzar
+    // Cargar el video y continuar al paso 2
     try {
       await videoStore.iniciarCarga()
       activeStep.value = 1
@@ -314,19 +312,7 @@ const continuarPaso1 = async () => {
   })
 }
 
-// REGLAS DE VALIDACIÓN
-const rules = {
-  matchName: [
-    { required: true, message: 'Indica el nombre del partido', trigger: 'blur' }
-  ],
-  date: [
-    { type: 'date', required: true, message: 'Selecciona una fecha', trigger: 'change' }
-  ],
-  location: [
-    { required: true, message: 'Indica el lugar del partido', trigger: 'blur' }
-  ]
-}
-
+// Activar el botón Continuar al paso 2
 const canContinueStep1 = computed(() => {
   return (
     form.matchName &&
@@ -337,15 +323,10 @@ const canContinueStep1 = computed(() => {
 })
 
 
-// Click en imagen (guardar punto)
-const registrarPunto = (event) => {
-  videoStore.registrarPunto(event, frameImg.value)
-}
 
-// Eliminar punto
-const deseleccionarPunto = (index) => {
-  videoStore.corners.splice(index, 1)
-}
+/*
+PASO DE SELECCIÓN DE JUGADORES
+*/
 
 // Click en imagen (guardar punto)
 const registrarJugador = (event) => {
@@ -357,47 +338,41 @@ const registrarJugador = (event) => {
   }
 }
 
-// Eliminar punto
+// Eliminar el jugador seleccionado
 const deseleccionarJugador = (index) => {
   videoStore.playersPositions.splice(index, 1)
 }
 
 
-// Verificar usuario al perder foco
+// Muestra los jugadores que empiezan por ese nombre
 async function queryUsers(query, index) {
-  console.log(`[queryUsers] Buscando para índice ${index} con query=“${query}”`)
   playerOptions.value[index] = []
   if (!query || !query.trim()) {
-    console.log(`[queryUsers] Query vacío, saliendo para índice ${index}`)
     return
   }
 
   loadingPlayers.value[index] = true
   try {
     const list = await buscarUsuarios(query)
-    console.log(`[queryUsers] Lista recibida para índice ${index}:`, list)
     playerOptions.value[index] = list
   } catch (err) {
-    console.error(`[queryUsers] Error buscando para índice ${index}:`, err)
     playerOptions.value[index] = []
   } finally {
     loadingPlayers.value[index] = false
   }
 }
 
+// Comprueba si el usuario existe y actualiza la validez
 async function onPlayerSelect(value, index) {
   nombresJugadores.value[index] = value
-  console.log(`[onPlayerSelect] Seleccionado “${value}” para índice ${index}`)
   try {
     const res = await comprobarExistencia(value)
     usuarioValido.value[index] = res.exists
     if (!res.exists) {
       ElMessage.error(`El usuario “${value}” no está registrado.`)
     }
-    // Si ya marcaste posición, asigna el username al store
     if (videoStore.playersPositions[index]) {
       videoStore.playersPositions[index].username = value
-      console.log(`[onPlayerSelect] Asignado username “${videoStore.playersPositions[index].username}” a la posición ${index}`)
     }
   } catch {
     usuarioValido.value[index] = false
@@ -410,20 +385,13 @@ const seleccionados = computed(() =>
   nombresJugadores.value.filter(n => n && n.trim())
 )
 
-function avatarPreview(path) {
-  if (!path) {
-    return ''
-  }
-  if (path.startsWith('http')) {
-    return path
-  }
-  const fullUrl = axios.defaults.baseURL + path
-  return fullUrl
-}
+// Función para obtener la URL del avatar del usuario que se muestra en el select
+const avatarPreview = (path) => authStore.getUserAvatarURL(path)
+
 
 // Verifica todos al continuar
 const comprobarTodosYContinuar = async () => {
-  // 1) Si no quiere asignar jugadores, simplemente avanza
+  // Si no quiere asignar jugadores, simplemente avanza
   if (!assignPlayers.value) {
     activeStep.value = 2
     return
@@ -431,14 +399,13 @@ const comprobarTodosYContinuar = async () => {
 
   const marcadas = playersPositions.value.length
 
-  // 2) Necesita las 4 posiciones
+  // Necesita las 4 posiciones
   if (marcadas < 4) {
     ElMessage.error(`Debes marcar las 4 posiciones (has marcado ${marcadas}).`)
     return
   }
 
-  // 3) Comprobar nombres inválidos
-  //    Si el usuario ha introducido un nombre y está marcado como inválido, bloqueamos
+  // Comprobar nombres inválidos
   for (let i = 0; i < 4; i++) {
     const name = nombresJugadores.value[i]?.trim()
     if (name && usuarioValido.value[i] === false) {
@@ -446,37 +413,51 @@ const comprobarTodosYContinuar = async () => {
       return
     }
   }
-
-  // 4) Todos OK: avanzamos
+  // Avanzar
   activeStep.value = 2
 }
 
 // Función para limpiar selección de jugadores
 function limpiarSeleccionJugadores() {
-  // Limpia el array de posiciones en el store (si tienes un método mejor, úsalo)
+  // Limpia el array de posiciones en el store
   videoStore.playersPositions = []
   // Reinicia los nombres y validaciones
   nombresJugadores.value = ['', '', '', '']
   usuarioValido.value = [null, null, null, null]
 }
 
-// Al cambiar de paso...
+// Limpiar la slecion si volvemos a atras
 watch(activeStep, (newStep, oldStep) => {
   if (oldStep === 1 && newStep < oldStep) {
     limpiarSeleccionJugadores()
   }
+  if (oldStep === 2 && newStep < oldStep) {
+    limpiarEsquinas()
+  }
 })
 
 
+/*
+PASO DE SELECCIÓN DE ESQUINAS
+*/
+function limpiarEsquinas() {
+  videoStore.corners = []
+}
 
+// Click en imagen (guardar punto)
+const registrarPunto = (event) => {
+  videoStore.registrarPunto(event, frameImg.value)
+}
+
+// Eliminar punto
+const deseleccionarPunto = (index) => {
+  videoStore.corners.splice(index, 1)
+}
 
 // Ejecutar análisis (Paso 3)
 const analizarVideo = async () => {
   videoStore.enviarImage(frameImg.value)
   try {
-    //await videoStore.enviarEsquinas()
-    //await videoStore.analizarVideo()
-    console.log('🖥️ [COMPONENT] Botón “Analizar vídeo” pulsado');
     videoStore.analizarVideo()
 
     ElNotification({

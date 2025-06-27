@@ -6,6 +6,13 @@
 </template>
 
 <script>
+/**
+ * @module App
+ * @component App
+ * @description
+ * Componente raíz de la aplicación Vue. <br>
+ * Se encarga únicamente de renderizar la vista activa según la ruta.
+ */
   export default {
     name: 'App',
   };

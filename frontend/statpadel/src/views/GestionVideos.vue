@@ -1,4 +1,20 @@
 <!-- src/views/GestionarVideos.vue -->
+
+<script>
+/**
+ * @module    views/GestionarVideos
+ * @component GestionarVideos
+ * @description
+ * <ul>
+ *   <li>Listado de mis partidos con búsqueda y paginación.</li>
+ *   <li>Edición inline de nombre, fecha, lugar y asignación de jugadores.</li>
+ *   <li>Prevención de seleccionar un mismo jugador dos veces.</li>
+ *   <li>Confirmación y eliminación de partidos.</li>
+ *   <li>Navegación a las estadísticas de cada partido.</li>
+ * </ul>
+ */
+</script>
+
 <template>
   <el-container class="videos-container">
     <AppHeader />
@@ -18,16 +34,8 @@
     </div>
 
     <!-- Tabla de partidos -->
-    <el-table
-      v-if="!matchStore.loading"
-      :data="paginatedMatches"
-      :table-layout="'auto'"
-      style="width: 100%; margin-top: 20px"
-      border
-      stripe
-      fit
-      empty-text="No tienes ningún partido subido todavía."
-    >
+    <el-table v-if="!matchStore.loading" :data="paginatedMatches" :table-layout="'auto'" style="width: 100%; margin-top: 20px"
+      border stripe fit empty-text="No tienes ningún partido subido todavía.">
       <!-- Nombre del partido -->
       <el-table-column label="Nombre" prop="matchName" sortable>
         <template #default="{ row }">
@@ -42,13 +50,7 @@
       <el-table-column label="Fecha" prop="matchDate" sortable>
         <template #default="{ row }">
           <div v-if="matchStore.editingId === row._id">
-            <el-date-picker
-              v-model="matchStore.editingForm.matchDate"
-              type="date"
-              size="small"
-              placeholder="Fecha del partido"
-              style="width: 120px;"
-            />
+            <el-date-picker v-model="matchStore.editingForm.matchDate" type="date"  size="small"  placeholder="Fecha del partido"  style="width: 120px;"/>
           </div>
           <div v-else>{{ formatDate(row.matchDate) }}</div>
         </template>
@@ -72,8 +74,7 @@
             <el-collapse accordion expand-icon-position="left">
               <el-collapse-item title="Mostrar jugadores" name="players">               
                 <div class="player-row" v-for="(label, key) in labels" :key="key" style="display:flex; align-items:center; gap:8px;">
-                  <el-avatar
-                    :src="(row.playerPositions[key] || {}).avatarPath" size="small"/>
+                  <el-avatar :src="matchStore.getPlayerAvatarURL(row._id, key)" size="small"/>
                   <span class="player-label">{{ label }}:</span>
                   <span class="player-name">
                     {{ (row.playerPositions[key] || {}).username || 'Sin asignar' }}
@@ -88,23 +89,10 @@
             <el-row :gutter="12">
               <el-col v-for="(label, key) in labels" :key="key" :xs="24" :sm="12" :md="6">
                 <el-form-item :prop="`playerPositions.${key}`">
-                     <el-select
-                        v-model="matchStore.editingPlayersForm[key]"
-                        filterable
-                        remote
-                        clearable
-                        size="small"
-                        :placeholder="label"
-                        :remote-method="query => queryUsers(query, key)"
-                        :loading="loadingPlayers[key]"
-                        style="width: 100%;"
-                      >
-                        <el-option
-                          v-for="item in playerOptions[key]"
-                          :key="item.value"
-                          :label="item.label"
-                          :value="item.value"
-                        >
+                     <el-select v-model="matchStore.editingPlayersForm[key]" filterable  remote clearable size="small"  :placeholder="label"
+                        :remote-method="query => queryUsers(query, key)" :loading="loadingPlayers[key]"  style="width: 100%;" >
+                        <el-option v-for="item in playerOptions[key]" :key="item.value" :label="item.label" :value="item.value"
+                          :disabled="seleccionados.includes(item.value) && item.value !== matchStore.editingPlayersForm[key]">
                           <div style="display:flex; align-items:center; gap:6px;">
                             <el-avatar :src="avatarPreview(item.avatarUrl)" size="small" shape="square"/>
                             <span>{{ item.label }}</span>
@@ -163,14 +151,8 @@
       Error: {{ matchStore.error }}
     </div>
 
-    <el-pagination
-      v-if="filteredMatches.length > pageSize"
-      v-model:current-page="currentPage"
-      :total="filteredMatches.length"
-      :page-size="pageSize"
-      layout="prev, pager, next"
-      class="pagination"
-    />
+    <el-pagination v-if="filteredMatches.length > pageSize" v-model:current-page="currentPage" :total="filteredMatches.length"
+      :page-size="pageSize" layout="prev, pager, next" class="pagination"/>
 
     <AppFooter/>
   </el-container>
@@ -179,48 +161,60 @@
 <script setup>
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
-import { onMounted, computed, ref, onUnmounted, watch} from 'vue'
+import { onMounted, computed, ref, onUnmounted} from 'vue'
 import { Plus, Search, Delete, Histogram, Check, Edit, Close, Loading  } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { useMatchStore } from '@/stores/matchStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { useAuthStore } from '@/stores/authStore'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import axios from 'axios'
 
+// Import de servicios para buscar usuarios
 import { buscarUsuarios } from '@/services/userService'
 
+
+// Modo oscuro o claro
 const themeStore = useThemeStore()
-
-onMounted(() => {
-  themeStore.initTheme()
-})
-
+onMounted(() => { themeStore.initTheme() })
 const isDark = computed(() => themeStore.isDark)
 
+// Stores
+const authStore = useAuthStore()
 const matchStore = useMatchStore()
+
+// Router
 const router = useRouter()
 
-const authStore = useAuthStore()
-const userId = computed(() => authStore.userId)
 
-watch(
-  () => matchStore.matches,
-  (list) => {
-    console.log('userId:', userId.value)
-    console.log('matches:', list)
-  },
-  { immediate: true }
-)
+const userId = computed(() => authStore.userId)
 
 const search = ref('')
 
+
+// Opciones de jugadores para el select
 const playerOptions   = ref([[], [], [], []])
 const loadingPlayers  = ref([false, false, false, false])
 
+// Labels para las posiciones de los jugadores
+const labels = {
+  top_left:     'Arriba Izq',
+  top_right:    'Arriba Der',
+  bottom_left:  'Abajo Izq',
+  bottom_right: 'Abajo Der'
+}
+
+
+// Carga los partidos al montar
+onMounted(() => {
+  matchStore.fetchMatches()
+})
+
+// funcion para mostrar los jugadores que empiezan por ese nombre
 async function queryUsers(query, index) {
   playerOptions.value[index] = []
-  if (!query || !query.trim()) return
+  if (!query || !query.trim()) {
+     return
+  }
 
   loadingPlayers.value[index] = true
   try {
@@ -232,32 +226,23 @@ async function queryUsers(query, index) {
     loadingPlayers.value[index] = false
   }
 }
-/*
-async function onEditPlayerSelect(value, index) {
-  const form = matchStore.editingPlayersForm
-  form[index] = value
-  try {
-    const res = await comprobarExistencia(value)
-    matchStore.editingPlayersValid[index] = res.exists
-    if (!res.exists) {
-      ElMessage.error(`El usuario “${value}” no está registrado.`)
-    }
-  } catch {
-    matchStore.editingPlayersValid[index] = false
-    ElMessage.error('Error comprobando usuario.')
-  }
-} */
+
+// No dejar selecionar jugadores ya asignados
+const seleccionados = computed(() => matchStore.getSelectedPlayerIds)
 
 // Buscar partidos por nombre
 const filteredMatches = computed(() => {
   const term = (search.value || '').toLowerCase()
 
   return matchStore.matches.filter(m => {
-    // m.matchName podría no existir: forzamos fallback a ''
     const name = (m.matchName || '').toLowerCase()
     return name.includes(term)
   })
 })
+
+// Variable para la página actual y tamaño de página
+const currentPage = ref(1)
+const pageSize = 10
 
 // Paginación de partidos
 const paginatedMatches = computed(() => {
@@ -267,58 +252,31 @@ const paginatedMatches = computed(() => {
 })
 
 
-const labels = {
-  top_left:     'Arriba Izq',
-  top_right:    'Arriba Der',
-  bottom_left:  'Abajo Izq',
-  bottom_right: 'Abajo Der'
-}
-
+// Funcion para manejar la edición de un partido
 function onEditMatch(id) {
+  // Buscar el partido por ID
   const match = matchStore.matches.find(m => m._id === id)
   if (!match) {
     console.warn(`No se encontró partido con id ${id}`)
     return
   }
+  // Iniciar la edición
   matchStore.startEdit(match)
 }
 
-// Dentro de <script setup> o en methods si usas Options API
+// Funcion para formatear la fecha en la vista
 function formatDate(dateString) {
   const d = new Date(dateString);
   return d.toLocaleDateString(); 
 }
 
-// Carga los partidos al montar
-onMounted(() => {
-  matchStore.fetchMatches()
-})
 
-// Navegar a estadísticas
+// Navegar a estadísticas del partido
 const onStats = id => {
   router.push({ name: 'ResultadosEstadisticas', params: { id } })
 }
 
-
-const isMobile = ref(window.innerWidth <= 768)
-
-const handleResize = () => {
-  isMobile.value = window.innerWidth <= 768
-}
-
-onMounted(() => {
-  window.addEventListener('resize', handleResize)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
-})
-
-const currentPage = ref(1)
-const pageSize = 10
-
-
-
+// Confirmar eliminación de un partido
 const confirmarEliminacion = async (id) => {
   try {
     await ElMessageBox.confirm(
@@ -352,17 +310,25 @@ const confirmarEliminacion = async (id) => {
   }
 }
 
+// Función para obtener la URL del avatar del usuario
+const avatarPreview = (path) => authStore.getUserAvatarURL(path)
 
-function avatarPreview(path) {
-  if (!path) {
-    return ''
-  }
-  if (path.startsWith('http')) {
-    return path
-  }
-  const fullUrl = axios.defaults.baseURL + path
-  return fullUrl
+
+
+// Funciones para manejar el cambio de tamaño de la ventana
+const isMobile = ref(window.innerWidth <= 768)
+
+const handleResize = () => {
+  isMobile.value = window.innerWidth <= 768
 }
+
+onMounted(() => {
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+})
 </script>
 
 <style scoped>

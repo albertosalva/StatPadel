@@ -1,3 +1,20 @@
+<script>
+/**
+ * @module    views/ResultadosEstadisticas
+ * @component ResultadosEstadisticas
+ * @description
+ * Muestra las estadísticas de un partido de pádel: 
+ * <ul>
+ *   <li>Jugadores del partido con sus imágenes.</li>
+ *   <li>Vídeo del partido.</li>
+ *   <li>Comparador de estadísticas de jugadores.</li>
+ *   <li>Mapa de calor de posiciones de golpeo.</li>
+ *   <li>Estadísticas de la bola.</li>
+ *   <li>Tabla de estadísticas de los jugadores.</li>
+ * </ul>
+*/
+</script>
+
 <template>
   <el-container class="estadisticas-container">
     <AppHeader/>
@@ -13,12 +30,12 @@
         <el-alert type="error" :title="error" show-icon />
       </div>
 
-      <div v-else-if="!match.analysis">
+      <div v-else-if="match && !match.analysis">
         <el-empty description="Este partido aún no tiene estadísticas." />
       </div>
 
-      <div v-else>
-        <el-row style="margin-top: 20px">
+      <div v-else-if="match && match.analysis">
+        <el-row v-if="playerOverview.length" style="margin-top: 20px">
           <el-col :span="24">
             <el-card shadow="hover">
               <template #header>👥 Jugadores del partido</template>
@@ -33,12 +50,7 @@
           <div class="estadisticas-col-inner">
             <el-card shadow="hover">
               <template #header>🎥 Vídeo</template>
-              <video
-                v-if="videoUrl"
-                controls
-                style="width: 100%; border-radius: 8px"
-                :src="videoUrl"
-              />
+              <video v-if="videoUrl" controls style="width: 100%; border-radius: 8px" :src="videoUrl" />
             </el-card>
 
             <el-card shadow="hover" class="expand-card">
@@ -53,7 +65,7 @@
           <div class="estadisticas-col-inner">
             <el-card shadow="hover">
               <template #header>🔥 Mapa de calor</template>
-              <HeatMap :match="match"/>
+              <HeatMap v-if="match" :match="match"/>
             </el-card>
 
             <el-card shadow="hover" class="expand-card">
@@ -73,13 +85,9 @@
             </el-card>
           </el-col>
         </el-row>
-
-
-
         
       </div>
     </el-main>
-
 
     <AppFooter/>
 
@@ -97,88 +105,36 @@ import ComparadorJugadores from '@/components/ComparadorJugadores.vue'
 import JugadoresImagen from '@/components/JugadoresImagen.vue'
 
 
-import { onMounted, ref, computed} from 'vue'
+import { onMounted, computed} from 'vue'
 import { useRoute } from 'vue-router'
-import matchService from '@/services/matchService'
-import axios from 'axios'
+import { useMatchStore } from '@/stores/matchStore'
 
+//import axios from 'axios'
+
+const matchStore = useMatchStore()
 const route = useRoute()
-const match = ref(null)
-const loading = ref(true)
-const error = ref(null)
 
-onMounted(async () => {
-  try {
-    const id = route.params.id
-    match.value = await matchService.getMatchById(id)
-    console.log('MATCH:', match.value)
-  } catch (err) {
-    error.value = err.response?.data?.error || err.message
-  } finally {
-    loading.value = false
-  }
+// Al montar el componente, obtenemos el ID del partido desde la ruta y cargamos los datos del partido
+onMounted(() => {
+  matchStore.fetchMatch(route.params.id)
 })
 
-const videoUrl = computed(() => {
-  const url = match.value?.videoPath ? `${axios.defaults.baseURL}${match.value.videoPath}` : ''
-  console.log('VIDEO URL:', url)
-  return url
-})
+// Obtenemos los datos del partido desde el store
+const match     = computed(() => matchStore.currentMatch)
+const loading   = computed(() => matchStore.loading)
+const error     = computed(() => matchStore.error)
 
-// 📊 Estadísticas de la bola (formato esperado por <BolaEstadisticas>)
-const ballStats = computed(() => {
-  const analysis = match.value?.analysis
-  if (!analysis?.distances?.ball || !analysis?.avgSpeeds?.ball || !analysis?.maxSpeeds?.ball) {
-    return null
-  }
-  return {
-    total_distance: analysis.distances.ball,
-    average_speed: analysis.avgSpeeds.ball,
-    max_speed: analysis.maxSpeeds.ball
-  }
-})
+// URL del vídeo del partido
+const videoUrl = computed(() => matchStore.getVideoURL)
 
 
-const playerStats = computed(() => {
-  const analysis = match.value?.analysis
-  const playerInfo = match.value?.playerPositions || {}
-  
-  if (!analysis?.distances || !analysis?.avgSpeeds || !analysis?.maxSpeeds) 
-    return null
+// Estadísticas de la bola 
+const ballStats = computed(() => matchStore.getBallStats)
 
-  // Solo incluir jugadores comunes a los tres conjuntos
-  const jugadores = Object.keys(analysis.distances).filter(id =>
-    id !== 'ball' &&
-    analysis.avgSpeeds[id] !== undefined &&
-    analysis.maxSpeeds[id] !== undefined
-  )
+// Estadísticas de los jugadores
+const playerStats = computed(() => matchStore.getPlayerStats)
 
-  const stats = {}
-  for (const id of jugadores) {
-    stats[id] = {
-      name: playerInfo[id]?.name || id,
-      total_distance: analysis.distances[id],
-      average_speed: analysis.avgSpeeds[id],
-      max_speed: analysis.maxSpeeds[id]
-    }
-  }
-
-  console.log('Player Stats:', stats)
-  return stats
-})
-
-const playerOverview = computed(() => {
-  const pp = match.value?.playerPositions || {}
-  // Lo convertimos en un array de { id, name, avatarPath }
-  return Object.entries(pp)
-    .filter(([, p]) => p != null)
-    .map(([id, p]) => ({
-      id,
-      name:       p.name,
-      avatarPath: p.avatarPath,
-      level:      p.level
-    }))
-})
+const playerOverview = computed(() => matchStore.getPlayerOverview)
 
 </script>
 

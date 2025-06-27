@@ -1,14 +1,25 @@
+<script>
+/**
+ * @module    components/HeatMap
+ * @component HeatMap
+ * @description
+ * Componente que muestra un mapa de calor de posiciones de golpeo en la pista de pádel.
+ *
+ * @prop {Object} match                             - Datos del partido.
+ * @prop {Object} match.heatmap            - Objeto con dos props: <br>
+ *                                                    • cell_size: tamaño de celda (m)  <br>
+ *                                                    • heatmap:   datos del mapa (un objeto de arrays por posición).
+ * @prop {Object} match.playerPositions             - Mapa de posición a info de jugador (nombre, etc.).
+ */
+</script>
+
 <template>
   <el-container direction="vertical" class="heatmap-wrapper">
     
     <!-- Checkbox de "Todos los jugadores" -->
     <el-row>
       <el-col :span="24">
-        <el-checkbox
-          v-model="checkAll"
-          :indeterminate="isIndeterminate"
-          @change="handleCheckAllChange"
-        >
+        <el-checkbox v-model="checkAll" :indeterminate="isIndeterminate"  @change="handleCheckAllChange">
           Todos los jugadores
         </el-checkbox>
       </el-col>
@@ -16,23 +27,13 @@
 
     <!-- Checkboxes individuales en fila -->
     <el-row :gutter="10" class="players-row">
-      <el-col
-        v-for="p in playerOptions"
-        :key="p.value"
-        :xs="12"
-        :sm="12"
-        :md="12"
-        :lg="12"
-        :span="6"
-        class="player-col"
-        @change="handleSelectedPlayersChange"
-      >
-        <el-checkbox
-          :label="p.value"
-          v-model="selectedPlayers"
-        >
-          {{ p.label }}
-        </el-checkbox>
+      <el-col v-for="p in playerOptions" :key="p.value" :xs="12" :sm="12" :md="12"
+        :lg="12" :span="6" class="player-col">
+        <el-checkbox-group v-model="selectedPlayers" @change="handleSelectedPlayersChange">
+          <el-checkbox :value="p.value" >
+            {{ p.label }}
+          </el-checkbox>
+        </el-checkbox-group>
       </el-col>
     </el-row>
 
@@ -46,16 +47,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, defineProps } from 'vue'
-//import { useRoute } from 'vue-router'
+import { ref, onMounted, defineProps, nextTick } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import { MatrixController, MatrixElement } from 'chartjs-chart-matrix'
 import 'chartjs-chart-matrix'
-//import matchService from '@/services/matchService'
 
-//defineProps({
-//  matchId: String
-//})
 const props = defineProps({
   match: {
     type: Object,
@@ -63,7 +59,31 @@ const props = defineProps({
   }
 })
 
+// Dimensiones de la pista de pádel (en metros)
+const width = 10
+const height = 20
 
+
+// Datos del heatmap
+const heatmapData = ref(null)
+const canvasRef = ref(null)
+
+const playerOptions = ref([])
+
+// Selección de jugadores
+const selectedPlayers = ref([])
+const checkAll = ref(true)
+const isIndeterminate = ref(false)
+
+// Nombres de posiciones si el jugador no tiene nombre
+const positionLabels = {
+  top_left:     'Arriba izquierda',
+  top_right:    'Arriba derecha',
+  bottom_left:  'Abajo izquierda',
+  bottom_right: 'Abajo derecha'
+}
+
+// Pista de pádel personalizada
 const padelCourtLines = {
   id: 'padelCourtLines',
   beforeDraw(chart) {
@@ -75,11 +95,11 @@ const padelCourtLines = {
 
     ctx.save()
 
-    // 🎨 Pintar fondo verde
-    ctx.fillStyle = '#006400' // Verde oscuro tipo pista
+    // Pintar fondo verde
+    ctx.fillStyle = '#006400'
     ctx.fillRect(left, top, width, height)
 
-    // ⚪ Pintar líneas blancas
+    // Pintar líneas blancas
     ctx.strokeStyle = '#ffffff'
     ctx.lineWidth = 2
 
@@ -87,16 +107,16 @@ const padelCourtLines = {
     const toX = x => left + (x / 10) * width 
     const toY = y => top + (y / 20) * height 
 
-    // 🟥 Contorno de pista
+    // Contorno de pista
     ctx.strokeRect(toX(0), toY(0), toX(10) - toX(0), toY(20) - toY(0))
 
-    // 🟥 Línea de red
+    // Línea de red
     ctx.beginPath()
     ctx.moveTo(toX(0), toY(10))
     ctx.lineTo(toX(10), toY(10))
     ctx.stroke()
 
-    // 🟥 Líneas de servicio 
+    // Líneas de servicio 
     ctx.beginPath()
     ctx.moveTo(toX(0), toY(10 - 6.5))
     ctx.lineTo(toX(10), toY(10 - 6.5))
@@ -104,7 +124,7 @@ const padelCourtLines = {
     ctx.lineTo(toX(10), toY(10 + 6.5))
     ctx.stroke()
 
-    // 🟥 Línea central vertical 
+    // Línea central vertical 
     ctx.beginPath()
     ctx.moveTo(toX(5), toY(10 - 6.5))
     ctx.lineTo(toX(5), toY(10 + 6.5))
@@ -115,38 +135,32 @@ const padelCourtLines = {
 }
 Chart.register(...registerables, MatrixController, MatrixElement, padelCourtLines)
 
-//const route = useRoute()
-//const matchId = route.params.id
-
-const heatmapData = ref(null)
-const canvasRef = ref(null)
-
-const width = 10
-const height = 20
-
-
-const playerOptions = ref([])
-
+// Cargar opciones de jugadores desde las posiciones
 function loadPlayerOptions(playerPositions) {
   playerOptions.value = Object.entries(playerPositions).map(([positionKey, player]) => {
     return {
       value: positionKey,
-      label: player?.name || positionKey
+      label: player?.name
+        ? player.name
+        : (positionLabels[positionKey] || positionKey)
     }
   })
+  //ordenar las posiciones de jugadores para mostrarlas en el orden correcto
+  .sort((a, b) => {
+      const order = ['top_left','top_right','bottom_left','bottom_right']
+      return order.indexOf(a.value) - order.indexOf(b.value)
+    })
   selectedPlayers.value = playerOptions.value.map(p => p.value)
 }
 
-const selectedPlayers = ref([])
-const checkAll = ref(true)
-const isIndeterminate = ref(false)
-
+// Manejo de cambios en el checkbox "Todos los jugadores"
 const handleCheckAllChange = (val) => {
   selectedPlayers.value = val ? [...playerOptions.value.map(p => p.value)] : []
   isIndeterminate.value = false
   renderHeatmap()
 }
 
+// Manejo de cambios en los checkboxes individuales
 const handleSelectedPlayersChange = (value) => {
   const count = value.length
   checkAll.value = count === playerOptions.value.length
@@ -154,7 +168,7 @@ const handleSelectedPlayersChange = (value) => {
   renderHeatmap()
 }
 
-
+// Combinar datos de múltiples jugadores
 function combinePlayers(data) {
   const combined = new Map()
 
@@ -172,22 +186,16 @@ function combinePlayers(data) {
   return Array.from(combined.values())
 }
 
-
+// Renderizar el heatmap
 function renderHeatmap() {
-    
-  if (!canvasRef.value) {
-    console.error("⛔ canvasRef aún no está listo.")
-    return
-  }
-
-  console.log("🛠 Renderizando heatmap...")
-
+  const canvas = canvasRef.value
+  if (!canvas) return
+  
   const ctx = canvasRef.value.getContext('2d')
   const existingChart = Chart.getChart(ctx)
-  if (existingChart) existingChart.destroy()
-  console.log("🛠 Renderizando heatmap...")
-
-
+  if (existingChart) {
+    existingChart.destroy()
+  }
   
   const { heatmap, cell_size } = heatmapData.value
   const selected = selectedPlayers.value
@@ -196,11 +204,12 @@ function renderHeatmap() {
   if (!selected.length) {
     matrix = []
   } else {
+    // Filtrar el heatmap por los jugadores seleccionados
     const filteredHeatmap = Object.fromEntries(Object.entries(heatmap).filter(([key]) => selected.includes(key)))
     matrix = combinePlayers(filteredHeatmap)
   }
   
-
+  // Preparar los datos para el gráfico
   const data = matrix.map(cell => ({
     x: cell.col * cell_size + cell_size / 2,
     y: cell.row * cell_size + cell_size / 2,
@@ -258,24 +267,20 @@ function renderHeatmap() {
 }
 
 onMounted(async () => {
-  //console.log("🟡 Cargando heatmap para matchId:", matchId)
-
   try {
-    const match =  props.match//await matchService.getMatchById(matchId)
+    const match =  props.match
     if (!match || !match.heatmap) {
-      console.warn("⚠️ No se encontraron datos de heatmap.")
       return
     }
 
     heatmapData.value = match.heatmap
     loadPlayerOptions(match.playerPositions)
-    console.log("✅ Datos de heatmap recibidos:", Object.keys(heatmapData.value))
-
-    await nextTick() // 💡 Espera a que el canvas se renderice
+    // Esperamos para asgurar esta cargado el canvas
+    await nextTick()
 
     renderHeatmap()
   } catch (err) {
-    console.error("❌ Error al obtener datos de MongoDB:", err)
+    console.error("Error al obtener datos", err)
   }
 })
 </script>

@@ -1,3 +1,13 @@
+<script>
+/**
+ * @module views/ConfiguracionPerfil
+ * @component ConfiguracionPerfil
+ * @description
+ * Vista para modificar los datos del perfil del usuario. <br>
+ * Permite cambiar nombre, correo electrónico, nivel, avatar y contraseña. 
+ */
+</script>
+
 <template>
   <el-container class="profile-container">
     <AppHeader />
@@ -103,10 +113,14 @@ import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
 
 const router = useRouter()
 
+const authStore = useAuthStore()
+const themeStore = useThemeStore()
+const isDark = computed(() => themeStore.isDark)
+
+// Formulario reactivo
 const form = reactive({
   name: '',
   email: '',
@@ -116,26 +130,28 @@ const form = reactive({
   level: ''
 })
 
-const authStore = useAuthStore()
 
+// Para detectar los cambios
 let originalName = ''
 let originalEmail = ''
 let originalLevel = ''
 
-const profileForm = ref(null)
 
+const profileForm = ref(null)
 const avatarFile = ref(null)
 
-const avatarPreview = ref(
-  authStore.avatarPath
-    ? `${axios.defaults.baseURL}${authStore.avatarPath}`
-    : ''
-)
 
+// Cambio de avatar
 function handleAvatarChange(file) {
   avatarFile.value = file.raw
-  avatarPreview.value = URL.createObjectURL(file.raw)
 }
+
+// Previsualización del avatar si se ha seleccionado uno si no mostramos el del store
+const avatarPreview = computed(() =>
+  avatarFile.value
+    ? URL.createObjectURL(avatarFile.value)
+    : authStore.getAvatarURL
+)
 
 // Carga datos de usuario al montar
 onMounted(() => {
@@ -146,9 +162,10 @@ onMounted(() => {
   form.name  = originalName
   form.email = originalEmail
   form.level = originalLevel
-  console.log('[Vue] Datos de usuario cargados:', authStore.getLevel)
+  //console.log('[Vue] Datos de usuario cargados:', authStore.getLevel)
 })
 
+// Validación del formulario y envío de datos
 async function handleSubmit() {
 
   profileForm.value.validate(async valid => {
@@ -156,6 +173,7 @@ async function handleSubmit() {
 
     console.log('[Vue] Validación del formulario:', form)
 
+    //Comprobamos si hay cambios en las contraseñas
     const wantsPwdChange = form.currentPassword || form.newPassword || form.confirmNewPassword
     if (wantsPwdChange) {
       if (!form.currentPassword) {
@@ -168,12 +186,10 @@ async function handleSubmit() {
       }
     }
 
-    const noNameChange  = form.name  === originalName
-    const noEmailChange = form.email === originalEmail
-    const noAvatarChange = !avatarFile.value
-    const noLevelChange = form.level === originalLevel
-    if (noNameChange && noEmailChange && !wantsPwdChange && noAvatarChange && noLevelChange) {
-      ElMessage.info('No hay cambios que guardar')
+    // Comprobamos si hay cambios en los datos
+    const changed = form.name  !== originalName || form.email !== originalEmail || form.level !== originalLevel || avatarFile.value || wantsPwdChange
+    if (!changed) {
+      ElMessage.primary('No hay cambios que guardar')
       return
     }
 
@@ -186,11 +202,8 @@ async function handleSubmit() {
       avatarFile: avatarFile.value
     }
 
-
-    console.log('[Vue] Payload para actualizar perfil:', payload)
-
+    // Confirmación antes de enviar
     try {
-      // Confirmación
       await ElMessageBox.confirm(
         '¿Estás seguro de que deseas actualizar tu perfil con estos cambios?',
         'Confirmar actualización',
@@ -201,7 +214,7 @@ async function handleSubmit() {
         }
       )
 
-      // Llamada a la acción del store (usa Axios + token)
+      // Llamada a la acción del store 
       await authStore.updateProfile(payload)
 
       // Éxito
@@ -218,8 +231,6 @@ async function handleSubmit() {
     } catch (err) {
       // Si el usuario canceló el diálogo, no hacemos nada
       if (err === 'cancel' || err === 'close') return
-
-      // Mostramos cualquier otro error
       const msg = err.message || 'Error al actualizar perfil'
       ElMessage.error(msg)
     }
@@ -227,6 +238,7 @@ async function handleSubmit() {
 }
 
 
+// Mensaje de confirmación para eliminar cuenta
 async function handleDelete() {
   try {
     await ElMessageBox.confirm(
@@ -248,9 +260,6 @@ async function handleDelete() {
     ElMessage.error('No se pudo eliminar la cuenta')
   }
 }
-
-const themeStore = useThemeStore()
-const isDark = computed(() => themeStore.isDark)
 
 </script>
 

@@ -5,7 +5,8 @@
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "lint": "vue-cli-service lint",
+    "docs": "jsdoc -c jsdoc.json"
   },
   "dependencies": {
     "animate.css": "^4.1.1",
@@ -35,6 +36,8 @@
     "@vue/cli-service": "~5.0.0",
     "eslint": "^7.32.0",
     "eslint-plugin-vue": "^8.0.3",
+    "jsdoc": "^4.0.4",
+    "jsdoc-vuejs": "^4.0.0",
     "less": "^4.3.0",
     "less-loader": "^12.3.0",
     "unocss": "^66.1.2",

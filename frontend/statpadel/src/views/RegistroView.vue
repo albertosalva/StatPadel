@@ -1,7 +1,16 @@
+<script>
+/**
+ * @module views/RegistroView
+ * @component RegistroView
+ * @description
+ * Vista de registro de nuevos usuarios, con formulario (usuario, email, nivel, contraseña).
+ */
+</script>
+
 <template>
   <el-container class="register-container">
     <el-main>
-      <el-image :src="logoSrc" alt="Logo StatPadel" fit="contain" style="height: 100px;"/>
+      <el-image :src="themeStore.logoSrc" alt="Logo StatPadel" fit="contain" style="height: 100px;"/>
 
       <!-- Nombre de la app -->
       <h1 class="register-title">StatPadel</h1>
@@ -81,12 +90,7 @@ const handleRegister = async () => {
   }
 }
 
-// Logo dinámico
-const logoSrc = computed(() =>
-  isDark.value
-    ? require('@/assets/logoSP.png')
-    : require('@/assets/logoSP-dark.png')
-)
+
 
 const themeStore = useThemeStore()
 

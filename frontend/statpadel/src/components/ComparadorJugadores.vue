@@ -1,27 +1,37 @@
+<script>
+/**
+ * @module    components/CompradorJugadores
+ * @component CompradorJugadores
+ * @description
+ * Componente que muestra un gráfico de radar comparativo de dos jugadores. <br>
+ * Permite seleccionar “Jugador 1” y “Jugador 2” para comparar sus estadísticas: <br>
+ * - Distancia total recorrida.  <br>
+ * - Velocidad media.  <br>
+ * - Velocidad máxima.
+ *
+ * @prop {Object[]} players                   - Array de objetos con información de los jugadores.
+ * @prop {string}   players[].name             - Nombre del jugador o etiqueta de posición.
+ * @prop {number}   players[].total_distance   - Distancia total recorrida en metros.
+ * @prop {number}   players[].average_speed    - Velocidad media en metros por segundo.
+ * @prop {number}   players[].max_speed        - Velocidad máxima en metros por segundo.
+ */
+</script>
+
+
 <template>
     <div>
         <el-row :gutter="20" class="mb-4">
       <el-col :span="12">
         <el-select v-model="selected1" placeholder="Jugador 1" style="width: 100%">
-          <el-option
-            v-for="(data, key) in players"
-            :key="key"
-            :label="getPlayerLabel(key)"
-            :value="key"
-            :disabled="key === selected2"
-          />
+          <el-option v-for="(data, key) in players" :key="key" :label="getPlayerLabel(key)" 
+          :value="key" :disabled="key === selected2"/>
         </el-select>
       </el-col>
 
       <el-col :span="12">
         <el-select v-model="selected2" placeholder="Jugador 2" style="width: 100%">
-          <el-option
-            v-for="(data, key) in players"
-            :key="key"
-            :label="getPlayerLabel(key)"
-            :value="key"
-            :disabled="key === selected1"
-          />
+          <el-option v-for="(data, key) in players" :key="key" :label="getPlayerLabel(key)"
+            :value="key" :disabled="key === selected1"/>
         </el-select>
       </el-col>
     </el-row>
@@ -36,12 +46,13 @@
 import {Chart, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, RadialLinearScale, PointElement, LineElement, Filler } from 'chart.js'
 import {Radar } from 'vue-chartjs'
 import { computed, defineProps, ref, onMounted} from 'vue'
-
 import { useThemeStore } from '@/stores/themeStore'
 
+// Importamos el store de tema
 const themeStore = useThemeStore()
-const isDark = computed(() => themeStore.isDark)
+//const isDark = computed(() => themeStore.isDark)
 
+// Registramos los componentes de Chart.js
 Chart.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, RadialLinearScale, PointElement, LineElement, Filler)
 
 // Props
@@ -52,10 +63,11 @@ const props = defineProps({
   }
 })
 
+// Seleccionamos los jugadores por defecto
 onMounted(() => {
   const ids = Object.keys(props.players)
   if (ids.length >= 2) {
-    selected1.value = ids[0]
+    selected1.value = ids[0] || null
     selected2.value = ids.find(id => id !== ids[0]) || null
   }
 })
@@ -67,26 +79,33 @@ const positionLabels = {
   bottom_right: 'Abajo derecha'
 }
 
-function getCssVar(name) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-}
 
-const cssVars = computed(() => {
-  void isDark.value
-  return {
-    textColor: getCssVar('--el-text-color-primary'),
-    gridColor: getCssVar('--el-border-color')
-  }
-})
-
+// Variables reactivas para los jugadores seleccionados
 const selected1 = ref(null)
 const selected2 = ref(null)
 
+// Función para obtener el nombre o la etiqueta del jugador
 function getPlayerLabel(id) {
   const name = props.players[id]?.name
   return !name || name === id ? positionLabels[id] || id : name
 }
 
+const maximosCalculados = computed(() => {
+  const jugadores = Object.values(props.players)
+
+  return {
+    total_distance: Math.max(...jugadores.map(p => p.total_distance || 0)),
+    average_speed: Math.max(...jugadores.map(p => p.average_speed || 0)),
+    max_speed: Math.max(...jugadores.map(p => p.max_speed || 0))
+  }
+})
+
+// Normaliza un valor entre 0 y 1 basado en el máximo proporcionado
+function normalizar(val, max) {
+  return val / max
+}
+
+// Datos para el gráfico radar
 const radarData = computed(() => {
   const jugadorIds = Object.keys(props.players)
   if (jugadorIds.length < 2) return null
@@ -95,12 +114,6 @@ const radarData = computed(() => {
 
   const j1 = props.players[selected1.value]
   const j2 = props.players[selected2.value]
-
-  //const maxValues = {
-  //  total_distance: Math.max(j1.total_distance, j2.total_distance),
-  //  average_speed: Math.max(j1.average_speed, j2.average_speed),
-  //  max_speed: Math.max(j1.max_speed, j2.max_speed)
-  //}
 
   return {
     labels: ['Distancia', 'Vel. media', 'Vel. máxima'],
@@ -131,22 +144,8 @@ const radarData = computed(() => {
   }
 })
 
-function normalizar(val, max) {
-  return val / max
-}
-
-const maximosCalculados = computed(() => {
-  const jugadores = Object.values(props.players)
-
-  return {
-    total_distance: Math.max(...jugadores.map(p => p.total_distance || 0)),
-    average_speed: Math.max(...jugadores.map(p => p.average_speed || 0)),
-    max_speed: Math.max(...jugadores.map(p => p.max_speed || 0))
-  }
-})
-
+// Opciones del gráfico radar
 const radarOptions = computed(() => {
-  const { textColor, gridColor } = cssVars.value
 
   return {
     responsive: true,
@@ -155,13 +154,13 @@ const radarOptions = computed(() => {
       legend: {
         position: 'top',
         labels: {
-          color: textColor
+          color: themeStore.textColor
         }
       },
       title: {
         display: true,
         text: 'Comparativa de jugadores',
-        color: textColor
+        color: themeStore.textColor
       },
       tooltip: {
 				callbacks: {
@@ -192,12 +191,14 @@ const radarOptions = computed(() => {
       r: {
         min: 0,
         max: 1,
-        angleLines: { color: gridColor },
-        grid: { color: gridColor },
-        pointLabels: { color: textColor, font: { size: 12 } },
+        angleLines: { color: themeStore.gridColor },
+        grid: { color: themeStore.gridColor },
+        pointLabels: { color: themeStore.textColor, font: { size: 12 } },
         ticks: { display: false }
       }
     }
   }
 })
+
+
 </script>

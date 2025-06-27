@@ -1,4 +1,14 @@
 <!-- src/views/Inicio.vue -->
+<script>
+/**
+ * @module views/InicioView
+ * @component InicioView
+ * @description
+ * Vista de inicio de la aplicación antes de iniciar sesión.  <br>
+ * Muestra el logo, botones de login/registro, selector de tema y descripción de la plataforma.
+ */
+</script>
+
 <template>
   <el-container class="home-container">
 
@@ -7,7 +17,7 @@
       
       <!-- Logo -->
       <div class="header-logo">
-        <el-image :src="logoSrc" alt="Logo StatPadel" fit="contain" style="height: 80px;"/>
+        <el-image :src="themeStore.logoSrc" alt="Logo StatPadel" fit="contain" style="height: 80px;"/>
       </div>
 
       <!-- Botones para escritorio (solo visibles en escritorio) -->
@@ -127,8 +137,6 @@
 
 </template>
 
-
-
 <script setup>
 import AppFooter from '@/components/AppFooter.vue'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
@@ -137,12 +145,17 @@ import miImagen from '@/assets/man-playing-padel.jpg'
 import { useThemeStore } from '@/stores/themeStore'
 
 
-// Cambiar logo según el modo oscuro
-const logoSrc = computed(() =>
-  isDark.value
-    ? require('@/assets/logoSP.png')    // Logo oscuro
-    : require('@/assets/logoSP-dark.png')  // Logo claro
-)
+const themeStore = useThemeStore()
+const isDark = computed(() => themeStore.isDark)
+
+const onToggleTheme = () => {
+  themeStore.toggleTheme()
+}
+
+onMounted(() => {
+  themeStore.initTheme()
+})
+
 
 // Estado del drawer y pantalla móvil
 const drawerVisible = ref(false)
@@ -161,17 +174,6 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
 })
-
-const themeStore = useThemeStore()
-
-onMounted(() => {
-  themeStore.initTheme()
-})
-
-const isDark = computed(() => themeStore.isDark)
-const onToggleTheme = () => {
-  themeStore.toggleTheme()
-}
 
 </script>
 

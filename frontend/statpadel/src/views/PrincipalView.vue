@@ -1,3 +1,20 @@
+<script>
+/**
+ * @module    views/PrincipalView
+ * @component PrincipalView
+ * @description
+ * Vista principal tras iniciar sesión que muestra:
+ * <ul>
+ *   <li>Saludo personalizado al usuario.</li>
+ *   <li>Acceso rápido para subir un nuevo vídeo de partido.</li>
+ *   <li>Resumen general: total de partidos, nivel y fecha del último partido.</li>
+ *   <li>Tabla con los 5 últimos partidos y botón para ir a sus estadísticas.</li>
+ *   <li>Gráfico de estadísticas de los últimos partidos.</li>
+ * </ul>
+ */
+</script>
+
+
 <template>
   <el-container class="principal-container">
     <!-- Header global -->
@@ -114,9 +131,10 @@
   </el-container>
 </template>
 
+
+
 <script setup>
 import { onMounted, computed} from 'vue'
-//import { Files, VideoCamera } from '@element-plus/icons-vue'
 import { Plus, Files, Histogram, Check, Loading } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
@@ -131,20 +149,23 @@ const themeStore = useThemeStore()
 const matchStore = useMatchStore()
 const router = useRouter()
 
+
 onMounted(() => {
   themeStore.initTheme()
-
   matchStore.loadGenralStats()
-
   matchStore.fetchMatches()
 })
 
+// Obtenemos los últimos 5 partidos
 const latestMatches = computed(() => matchStore.latestFiveMatches)
+
 const isDark = computed(() => themeStore.isDark)
 
 // Computed para nombre de usuario
 const username = computed(() => authStore.getUsername)
 
+
+// Formatear fecha
 function formatDate(dateString) {
   const d = new Date(dateString)
   return d.toLocaleDateString()
