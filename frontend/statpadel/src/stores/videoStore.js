@@ -8,7 +8,6 @@
  *   <li>Subida temporal y extracción de frame.</li>
  *   <li>Registro de esquinas y posiciones de jugadores.</li>
  *   <li>Envío de datos al backend para el análisis y almacenamiento del resultado.</li>
- *   <li>Acumulación de mensajes de depuración.</li>
  * </ul>
  */
 
