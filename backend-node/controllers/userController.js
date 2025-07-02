@@ -14,7 +14,7 @@
 
 const User = require('../models/Users');
 const Match = require('../models/Match');
-const fs = require('fs');
+const fs = require('fs/promises');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const { deleteMatchById } = require('../services/matchServices');
@@ -169,7 +169,8 @@ exports.updateProfile = async (req, res) => {
       const defaultAvatar = '/uploads/avatars/avatarDefault.png';
 
       const avatarsDir = path.join(__dirname, '..', 'uploads', 'avatars');
-      const files = fs.readdirSync(avatarsDir);
+      //const files = await fs.readdirSync(avatarsDir);
+      const files = await fs.readdir(avatarsDir);
 
       files.forEach(file => {
         const isUserAvatar = (file.startsWith(userId) && file !== defaultAvatar && file !== newFileName);
@@ -177,9 +178,9 @@ exports.updateProfile = async (req, res) => {
           const fullPath = path.join(avatarsDir, file);
           fs.unlink(fullPath, err => {
             if (err) {
-              console.warn('[updateProfile] ❌ No se pudo borrar avatar anterior:', fullPath);
+              console.warn('[updateProfile] No se pudo borrar avatar anterior:', fullPath);
             } else {
-              console.log('[updateProfile] ✅ Avatar anterior eliminado:', fullPath);
+              console.log('[updateProfile] Avatar anterior eliminado:', fullPath);
             }
           })
         }
@@ -251,7 +252,7 @@ exports.deleteUser = async (req, res) => {
     return res.json({ message: 'Usuario eliminado correctamente' });
 
   } catch (err) {
-    console.error('[❌ deleteUser]:', err);
+    console.error('[deleteUser]:', err);
     return res.status(500).json({ message: 'Error en el servidor' });
   }
 };

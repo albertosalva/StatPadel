@@ -83,7 +83,16 @@ exports.login = async (req, res) => {
  * @throws  {500}                         Si ocurre un error en el servidor.
  */
 exports.register = async (req, res) => {
+  console.log('Datos de registro:', req.body);
   const { nombre, email, password, level } = req.body;
+
+  if (!nombre || !email || !password || !level) {
+    return res.status(400).json({ message: 'Faltan datos obligatorios' });
+  }
+
+  if (!['Principiante', 'Intermedio', 'Avanzado'].includes(level)) {
+    return res.status(400).json({ message: 'Nivel no válido' });
+  }
 
   try {
     const existingByUsername = await Usuario.findOne({ username: nombre });
@@ -100,7 +109,7 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'Nivel no seleccionado' })
     }
 
-    avatarPath = '/uploads/avatars/avatarDefault.png';
+    const avatarPath = '/uploads/avatars/avatarDefault.png';
 
 
     const newUser = new Usuario({

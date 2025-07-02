@@ -19,7 +19,7 @@ const Match = require('../models/Match');
 const User = require('../models/Users');
 const mongoose = require('mongoose');
 const path = require('path');
-const fs = require('fs').promises;
+const fs = require('fs/promises');
 const { deleteMatchById } = require('../services/matchServices');
 
 

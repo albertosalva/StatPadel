@@ -60,13 +60,6 @@ const playersList = computed(() =>
   })),
 )
 
-//function getAvatarUrl(path) {
-//    console.log('getAvatarUrl', path)
-//  if (!path) return ''
-//  return path.startsWith('http')
-//    ? path
-//    : axios.defaults.baseURL + path
-//}
 
 </script>
 

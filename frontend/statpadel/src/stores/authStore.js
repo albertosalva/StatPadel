@@ -89,6 +89,9 @@ export const useAuthStore = defineStore('auth', {
          */
         async register(nombre, email, password, confirmPassword, level) {
             // Llama al servicio de registro y retorna la respuesta.
+            if (!email || !email.includes('@') || !email.includes('.')) {
+                throw new Error('Correo electrónico no válido');
+            }
             if (password !== confirmPassword) {
                 throw new Error('Las contraseñas no coinciden');
             }
