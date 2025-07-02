@@ -36,13 +36,20 @@
         <h2>Sube tu vídeo</h2>
         
         <el-form @submit.prevent="continuarPaso1" :model="form" ref="formRef" :rules="rules"
-          class="upload-form" label-width="0" >
+          class="upload-form" label-width="0">
 
           <!-- Nombre del partido -->
           <el-input v-model="form.matchName" placeholder="Nombre del partido*" :prefix-icon="EditPen" clearable />
 
           <!-- Lugar -->
-          <el-input v-model="form.location" placeholder="Lugar del partido*" :prefix-icon="Location" clearable />
+          <div class="autocomplete">
+            <el-autocomplete v-model="form.location" :fetch-suggestions="fetchLocationSuggestions"
+              @select="onSelectLocation" placeholder="Lugar del partido*" >
+              <template #prefix>
+                <el-icon><Location /></el-icon>
+              </template>
+            </el-autocomplete>
+          </div>
 
           <!-- Fecha -->
           <el-date-picker v-model="form.date" type="date" placeholder="Fecha del partido*" :prefix-icon="Calendar" clearable />
@@ -216,6 +223,7 @@ import { ElMessage, ElNotification} from 'element-plus'
 import { useVideoStore } from '@/stores/videoStore'
 import { useAuthStore } from '@/stores/authStore'
 import { comprobarExistencia, buscarUsuarios } from '@/services/userService'
+import { autocompleteAddress, geocodeAddress } from '@/services/geolocationService'
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
 
@@ -254,6 +262,8 @@ const frameImage = computed(() => videoStore.frameImage)
 const corners = computed(() => videoStore.corners)
 const playersPositions = computed(() => videoStore.playersPositions)
 
+// Localización: sugerencias y geocodificación
+const suggError = ref(null)
 
 /*
 PASO DE LA SUBIDA DE VÍDEO Y RELLENAR DATOS DEL PARTIDO
@@ -280,6 +290,31 @@ const rules = {
   ]
 }
 
+
+async function fetchLocationSuggestions(query, callback) {
+  try {
+    suggError.value = null
+    const list = await autocompleteAddress(query)
+    callback(list.map(i => ({ value: i.description, placeId: i.placeId })))
+  } catch (err) {
+    console.error('Error autocomplete:', err)
+    suggError.value = err.message
+    callback([])
+  }
+}
+
+async function onSelectLocation(item) {
+  form.location = item.value
+
+  try {
+    const geo = await geocodeAddress(item.value)
+    if (!geo) {
+      ElMessage.error('No se pudieron obtener coordenadas de esa dirección.')
+    }
+  } catch (err) {
+    ElMessage.error(`Dirección no válida: ${err.message}`)
+  }
+}
 
 // Paso 1 al paso 2
 const continuarPaso1 = async () => {
@@ -564,25 +599,28 @@ h2 {
   margin-top: 16px;
 }
 
-
 .upload-form {
-  /* El ancho máximo lo pones tú → ajusta el número a tu diseño.            */
-  max-width: 100%;    /* 100 % si quieres que se estire a todo el contenedor */
+  max-width: 100%; 
   width: 100%;
   
   display: flex;
   flex-direction: column;
-  gap: 1rem;          /* separación vertical entre controles */
+  gap: 1rem;   
 }
 
-.upload-form :deep(.el-input),
-.upload-form :deep(.el-input__wrapper),
-.upload-form :deep(.el-date-editor),
-.upload-form :deep(.el-date-editor .el-input__wrapper) {
+.upload-form > :deep(.el-input),
+.upload-form > :deep(.el-date-editor) {
   align-self: center;
   width: 80%;
   box-sizing: border-box;
 }
+
+.autocomplete {
+  width: 80%; 
+  align-self: center; 
+  box-sizing: border-box;
+}
+
 
 /* Coloreado de borde en foco para todos los campos */
 .upload-form :deep(.is-focus .el-input__wrapper) {
@@ -736,14 +774,6 @@ h2 {
 
 .input-wrapper.invalido {
   border-color: #f56c6c; /* rojo */
-}
-
-
-.image-wrapper {
-  position: relative;
-  width: 100%;
-  max-width: 800px;
-  margin: 0 auto;
 }
 
 .punto {

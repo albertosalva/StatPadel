@@ -86,6 +86,9 @@ app.use('/api/matches', matchRoutes);
 const userRoutes = require('./routes/userRoutes');
 app.use('/api/users', userRoutes);
 
+const geolocationRoutes = require('./routes/geolocationRoutes');
+app.use('/api/geolocation', geolocationRoutes);
+
 // Middleware para servir archivos estáticos de la carpeta "uploads"
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 

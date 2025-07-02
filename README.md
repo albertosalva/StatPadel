@@ -10,7 +10,7 @@
 <h3 align="center">StatPadel</h3>
 
   <p align="center">
-    Plataforma para el análisis de rendimiento en partidos de padel.
+    Plataforma para el análisis de rendimiento en partidos de pádel.
     <br />
     <a href="https://github.com/albertosalva/StatPadel"><strong>Explora la documentación »</strong></a>
     <br />

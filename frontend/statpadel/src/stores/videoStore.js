@@ -126,9 +126,7 @@ export const useVideoStore = defineStore('video', {
       if (this.playersPositions.length < 4) {
         this.playersPositions.push({ x, y });
         //console.log('[STORE] playersPositions:', this.playersPositions);
-      } else {
-        this.agregarDebug("Ya se han registrado 4 jugadores.");
-      }
+      } 
     },
     /**
      * @method enviarImage

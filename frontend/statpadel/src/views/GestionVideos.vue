@@ -60,7 +60,17 @@
       <el-table-column label="Lugar" prop="matchLocation" sortable>
         <template #default="{ row }">
           <div v-if="matchStore.editingId === row._id">
-            <el-input v-model="matchStore.editingForm.matchLocation" size="small" />
+            <el-autocomplete v-model="matchStore.editingForm.matchLocation" :fetch-suggestions="fetchLocationSuggestions" :trigger-on-focus="false"
+              placeholder="Empieza a escribir la dirección" :popper-class="'autocomplete-dropdown'" @select="onSelectLocation" style="width: 100%;">
+            </el-autocomplete>
+
+            <el-alert
+              v-if="suggError"
+              :title="suggError"
+              type="error"
+              show-icon
+              class="mt-2"
+            />
           </div>
           <div v-else>{{ row.matchLocation }}</div>
         </template>
@@ -171,6 +181,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 // Import de servicios para buscar usuarios
 import { buscarUsuarios } from '@/services/userService'
+// Import de servicio para geocodificar direcciones
+import { autocompleteAddress, geocodeAddress } from '@/services/geolocationService.js'
 
 
 // Modo oscuro o claro
@@ -195,12 +207,40 @@ const search = ref('')
 const playerOptions   = ref([[], [], [], []])
 const loadingPlayers  = ref([false, false, false, false])
 
+// Variables para sugerencias de localización y geocodificación
+const suggError         = ref(null)
+const geocodeResult   = ref(null)
+const geocodingError  = ref(null)
+
 // Labels para las posiciones de los jugadores
 const labels = {
   top_left:     'Arriba Izq',
   top_right:    'Arriba Der',
   bottom_left:  'Abajo Izq',
   bottom_right: 'Abajo Der'
+}
+
+
+// Funciones para la localización
+async function fetchLocationSuggestions(queryString, callback) {
+  try {
+    const list = await autocompleteAddress(queryString);
+    callback(list.map(i => ({ value: i.description, placeId: i.placeId })));
+  } catch (err) {
+    suggError.value = err.message;
+    callback([]);
+  }
+}
+
+async function onSelectLocation(item) {
+  matchStore.editingForm.matchLocation = item.value
+  const geo = await geocodeAddress(item.value)
+  if (geo) {
+    geocodeResult.value = geo
+    geocodingError.value = null
+  } else {
+    geocodingError.value = 'No se pudo obtener coordenadas'
+  }
 }
 
 
