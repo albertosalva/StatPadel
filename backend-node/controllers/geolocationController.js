@@ -1,5 +1,15 @@
 // src/controllers/geolocationController.js
 
+/**
+ * @module controllers/geolocationController
+ * @description
+ * Controlador para la gestión de funcionalidades de geolocalización utilizando la API de Google:
+ * <ul>
+ *   <li><code>autocomplete</code>: devuelve predicciones de dirección según texto parcial.</li>
+ *   <li><code>geocode</code>: devuelve coordenadas (lat/lng) y placeId a partir de una dirección.</li>
+ * </ul>
+ */
+
 const axios = require('axios');
 
 const AUTO_URL = 'https://maps.googleapis.com/maps/api/place/autocomplete/json';
@@ -7,7 +17,13 @@ const GEO_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
 const KEY = process.env.GOOGLE_API_KEY;
 
 /**
- * Maneja /autocomplete: recibe `input` en query y devuelve JSON de predicciones.
+ * Devuelve predicciones de dirección desde Google Places Autocomplete.
+ *
+ * @async
+ * @function autocomplete
+ * @param   {express.Request}  req - La petición HTTP con el parámetro `input` en query.
+ * @param   {express.Response} res - La respuesta HTTP con un array de predicciones.
+ * @returns {Promise<express.Response>} Código 200 con predicciones o código de error.
  */
 exports.autocomplete = async (req, res) => {
   const { input } = req.query;
@@ -27,7 +43,13 @@ exports.autocomplete = async (req, res) => {
 };
 
 /**
- * Maneja /geocode: recibe `address` en query y devuelve JSON con resultados.
+ * Devuelve coordenadas geográficas y placeId desde una dirección usando Google Geocoding API.
+ *
+ * @async
+ * @function geocode
+ * @param   {express.Request}  req - La petición HTTP con el parámetro `address` en query.
+ * @param   {express.Response} res - La respuesta HTTP con latitud, longitud, placeId y datos crudos.
+ * @returns {Promise<express.Response>} Código 200 con datos geográficos o código de error.
  */
 exports.geocode = async (req, res) => {
   const { address } = req.query;

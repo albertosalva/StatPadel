@@ -12,8 +12,10 @@ import axios from 'axios'
 import { useAuthStore } from '@/stores/authStore'
 
 /**
- * Crea una instancia de Axios con el token JWT y la baseURL de geolocalización.
- * @returns {import('axios').AxiosInstance}
+ * Crea una instancia de Axios con el token JWT en la cabecera de Authorization,
+ * configurada para el endpoint de partidos.
+ *
+ * @returns {AxiosInstance} Instancia de Axios para `/api/matches`.
  */
 function getGeoApi() {
   const { token } = useAuthStore()
@@ -61,7 +63,7 @@ export const autocompleteAddress = async input => {
  * @async
  * @function geocodeAddress
  * @param   {string} address  Dirección completa a convertir.
- * @returns {Promise<{ formatted: string, lat: number, lng: number, placeId: string, raw: object }>>}
+ * @returns {Promise<{ formatted: string, lat: number, lng: number, placeId: string, raw: object }>}
  * @throws  {Error}          Si no se reciben datos válidos o la petición falla.
  */
 export const geocodeAddress = async address => {
